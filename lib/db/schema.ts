@@ -21,7 +21,7 @@ export const users = pgTable('users', {
   passwordHash: varchar('password_hash', { length: 255 }).notNull(),
   firstName: varchar('first_name', { length: 100 }).notNull(),
   lastName: varchar('last_name', { length: 100 }).notNull(),
-  role: userRoleEnum('role').notNull().default('paralegal'),
+  role: userRoleEnum('role').notNull().default('attorney'),
   firmId: uuid('firm_id').notNull().references(() => firms.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

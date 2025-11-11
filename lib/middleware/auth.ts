@@ -6,7 +6,7 @@
 
 import { NextRequest } from 'next/server';
 import { extractTokenFromHeader, verifyAccessToken, JWTPayload } from '../services/auth.service';
-import { UnauthorizedError } from '../errors';
+import { UnauthorizedError, ForbiddenError } from '../errors';
 
 /**
  * Authenticated user data returned by requireAuth
@@ -87,6 +87,6 @@ export function requireRole(
   allowedRoles: Array<'admin' | 'attorney' | 'paralegal'>
 ): void {
   if (!allowedRoles.includes(user.role)) {
-    throw new UnauthorizedError(`Insufficient permissions. Required roles: ${allowedRoles.join(', ')}`);
+    throw new ForbiddenError(`Insufficient permissions. Required role(s): ${allowedRoles.join(', ')}`);
   }
 }

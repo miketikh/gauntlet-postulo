@@ -8,7 +8,7 @@
 
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Scale, LayoutDashboard, FolderOpen, FileText, Settings, LogOut, User } from 'lucide-react';
+import { Scale, LayoutDashboard, FolderOpen, FileText, Settings, LogOut, User, UserCog } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import {
@@ -109,6 +109,19 @@ export default function DashboardLayout({
             </Link>
 
             <div className="pt-4 border-t border-slate-200 mt-4">
+              {/* Admin-only User Management link */}
+              {user?.role === 'admin' && (
+                <Link href="/dashboard/admin/users">
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-start text-slate-700 hover:text-slate-900 hover:bg-slate-100"
+                  >
+                    <UserCog className="h-4 w-4 mr-3" />
+                    User Management
+                  </Button>
+                </Link>
+              )}
+
               <Link href="/dashboard/settings">
                 <Button
                   variant="ghost"
