@@ -1,36 +1,120 @@
 'use client';
 
 /**
- * Projects Page (Placeholder)
- * Will be implemented in future iterations
+ * Projects Dashboard Page
+ * Displays all demand letter projects with filtering and search
  */
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { FolderOpen } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { ProjectsGrid } from '@/components/projects/projects-grid';
+import { ProjectsFilters } from '@/components/projects/projects-filters';
+import { Button } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
+import { apiClient } from '@/lib/api/client';
 
 export default function ProjectsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [projects, setProjects] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 0, limit: 20 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Get filter params
+  const status = searchParams.get('status') || '';
+  const search = searchParams.get('search') || '';
+  const page = parseInt(searchParams.get('page') || '1');
+
+  useEffect(() => {
+    fetchProjects();
+  }, [status, search, page]);
+
+  const fetchProjects = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const params = new URLSearchParams();
+      if (status) params.set('status', status);
+      if (search) params.set('search', search);
+      params.set('page', page.toString());
+
+      const response = await apiClient.get(`/api/projects?${params}`);
+
+      setProjects(response.data.projects);
+      setPagination(response.data.pagination);
+    } catch (err: any) {
+      console.error('Error fetching projects:', err);
+      setError(err.response?.data?.error?.message || 'Failed to load projects');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleFilterChange = (filters: { status?: string; search?: string }) => {
+    const params = new URLSearchParams(searchParams.toString());
+
+    if (filters.status !== undefined) {
+      if (filters.status) {
+        params.set('status', filters.status);
+      } else {
+        params.delete('status');
+      }
+    }
+
+    if (filters.search !== undefined) {
+      if (filters.search) {
+        params.set('search', filters.search);
+      } else {
+        params.delete('search');
+      }
+    }
+
+    params.set('page', '1'); // Reset to page 1
+    router.push(`/dashboard/projects?${params.toString()}`);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('page', newPage.toString());
+    router.push(`/dashboard/projects?${params.toString()}`);
+  };
+
   return (
-    <div className="max-w-6xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">Projects</h1>
-        <p className="text-slate-600">
-          Manage your demand letter projects
-        </p>
+    <div className="container mx-auto">
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-3xl font-bold">Projects</h1>
+          <p className="text-slate-600 mt-1">
+            Manage your demand letters
+          </p>
+        </div>
+
+        <Button onClick={() => router.push('/dashboard/projects/new/upload')}>
+          <Plus className="h-4 w-4 mr-2" />
+          New Demand Letter
+        </Button>
       </div>
 
-      <Card className="border-dashed border-2">
-        <CardContent className="flex flex-col items-center justify-center py-16">
-          <div className="rounded-full bg-slate-100 p-4 mb-4">
-            <FolderOpen className="h-12 w-12 text-slate-600" />
-          </div>
-          <h2 className="text-2xl font-semibold text-slate-900 mb-2">
-            Projects Coming Soon
-          </h2>
-          <p className="text-slate-600 text-center max-w-md">
-            Project management features will be available in the next development phase.
-          </p>
-        </CardContent>
-      </Card>
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6">
+          {error}
+        </div>
+      )}
+
+      <ProjectsFilters
+        currentStatus={status}
+        currentSearch={search}
+        onChange={handleFilterChange}
+      />
+
+      <ProjectsGrid
+        projects={projects}
+        loading={loading}
+        pagination={pagination}
+        onPageChange={handlePageChange}
+      />
     </div>
   );
 }

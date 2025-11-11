@@ -6,6 +6,7 @@
  * Based on architecture.md dashboard requirements
  */
 
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,7 +19,12 @@ import {
 import { FileText, Plus } from 'lucide-react';
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { user } = useAuth();
+
+  const handleNewDemandLetter = () => {
+    router.push('/dashboard/projects/new/upload');
+  };
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -84,13 +90,10 @@ export default function DashboardPage() {
             Get started by creating a new project. Upload case documents, select
             a template, and let AI generate your demand letter.
           </p>
-          <Button size="lg" disabled>
+          <Button size="lg" onClick={handleNewDemandLetter}>
             <Plus className="h-5 w-5 mr-2" />
-            New Project (Coming Soon)
+            New Demand Letter
           </Button>
-          <p className="text-xs text-muted-foreground mt-4">
-            Project creation will be available in the next phase
-          </p>
         </CardContent>
       </Card>
 
