@@ -65,6 +65,7 @@ export const sourceDocuments = pgTable('source_documents', {
   s3Key: varchar('s3_key', { length: 500 }).notNull(),
   extractedText: text('extracted_text'),
   extractionStatus: extractionStatusEnum('extraction_status').notNull().default('pending'),
+  metadata: jsonb('metadata'), // For OCR confidence, errors, etc.
   uploadedBy: uuid('uploaded_by').notNull().references(() => users.id),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
