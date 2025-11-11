@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
+import { useAuthStore } from '@/lib/stores/auth.store';
 
 interface DocumentViewerProps {
   documentId: string;
@@ -32,7 +33,12 @@ export function DocumentViewer({ documentId, fileName, fileType }: DocumentViewe
 
   useEffect(() => {
     // Fetch document with presigned URL
-    fetch(`/api/documents/${documentId}`)
+    const accessToken = useAuthStore.getState().accessToken;
+    fetch(`/api/documents/${documentId}`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    })
       .then(res => res.json())
       .then(data => {
         setPresignedUrl(data.document.presignedUrl);

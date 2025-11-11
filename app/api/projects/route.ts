@@ -16,7 +16,7 @@ import { z } from 'zod';
  */
 const createProjectSchema = z.object({
   templateId: z.string().uuid('Invalid template ID'),
-  variables: z.record(z.any()),
+  variables: z.record(z.string(), z.any()),
   title: z.string().min(1, 'Title is required'),
   clientName: z.string().min(1, 'Client name is required'),
 });

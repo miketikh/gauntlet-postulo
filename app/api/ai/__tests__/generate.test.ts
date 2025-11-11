@@ -1,6 +1,6 @@
 /**
  * AI Generation Endpoint Integration Tests
- * Tests the POST /api/ai/generate endpoint with mocked Claude API
+ * Tests the POST /api/ai/generate endpoint with mocked AI service
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -261,7 +261,7 @@ describe('POST /api/ai/generate', () => {
       yield 'Generated content';
       return {
         tokenUsage: { inputTokens: 100, outputTokens: 50 },
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'gpt-4.1-mini',
         duration: 1000,
       };
     }

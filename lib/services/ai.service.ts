@@ -1,31 +1,17 @@
 /**
  * AI Service
- * Handles Claude API integration for demand letter generation with streaming
- * Based on architecture.md AI integration patterns
+ * Handles AI integration for demand letter generation with streaming
+ * Based on architecture.md AI integration patterns using Vercel AI SDK
  */
 
-import Anthropic from '@anthropic-ai/sdk';
+import { openai } from '@ai-sdk/openai';
+import { streamText } from 'ai';
 import { Template } from '../db/schema';
 import { buildPrompt, validatePromptSize, getRecommendedPromptType, PromptType } from './prompt.service';
 
-// Claude model configuration (architecture.md specifies Claude 3.5 Sonnet)
-const MODEL = 'claude-3-5-sonnet-20241022';
-const MAX_TOKENS = 4096;
-
-/**
- * Get or create Anthropic client instance
- * Lazy initialization to avoid issues in test environments
- */
-let anthropicClient: Anthropic | null = null;
-
-function getAnthropicClient(): Anthropic {
-  if (!anthropicClient) {
-    anthropicClient = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY!,
-    });
-  }
-  return anthropicClient;
-}
+// Model configuration - Using OpenAI GPT-4.1-mini as specified
+// Architecture.md specifies using Vercel AI SDK for better agentic functionality
+const MODEL = 'gpt-4.1-mini';
 
 /**
  * Request payload for generating demand letters
@@ -49,9 +35,9 @@ export interface GenerationMetadata {
 }
 
 /**
- * Generate demand letter using Claude API with streaming
+ * Generate demand letter using Vercel AI SDK with streaming
  *
- * This async generator yields text chunks as they arrive from Claude,
+ * This async generator yields text chunks as they arrive from the AI model,
  * and returns metadata about token usage and timing when complete.
  *
  * @param sourceText - Combined text from all source documents
@@ -92,53 +78,36 @@ export async function* generateDemandLetter(
   console.log(`[AI Service] Using ${promptType} prompt (estimated ${validation.tokenCount} tokens)`);
 
   const startTime = Date.now();
-  let inputTokens = 0;
-  let outputTokens = 0;
 
   try {
-    const anthropic = getAnthropicClient();
-
-    // Create streaming message with Claude
-    const stream = await anthropic.messages.stream({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
-      messages: [{
-        role: 'user',
-        content: prompt,
-      }],
+    // Stream text generation using Vercel AI SDK
+    const result = streamText({
+      model: openai(MODEL),
+      prompt,
     });
 
-    // Process stream events
-    for await (const event of stream) {
-      // Handle different event types from the stream
-      if (event.type === 'content_block_delta') {
-        // Text delta - yield the chunk to caller
-        if (event.delta.type === 'text_delta') {
-          yield event.delta.text;
-        }
-      } else if (event.type === 'message_start') {
-        // Capture input token count
-        inputTokens = event.message.usage.input_tokens;
-      } else if (event.type === 'message_delta') {
-        // Capture output token count
-        if (event.usage) {
-          outputTokens = event.usage.output_tokens;
-        }
-      }
+    // Stream text chunks to caller
+    for await (const chunk of result.textStream) {
+      yield chunk;
     }
 
+    // Get final usage statistics
+    const usage = await result.usage;
     const duration = Date.now() - startTime;
 
     // Return final metadata
     return {
-      tokenUsage: { inputTokens, outputTokens },
+      tokenUsage: {
+        inputTokens: usage.promptTokens,
+        outputTokens: usage.completionTokens,
+      },
       model: MODEL,
       duration,
     };
   } catch (error) {
-    // Handle Anthropic API errors
-    if (error instanceof Anthropic.APIError) {
-      throw new Error(`Claude API error (${error.status}): ${error.message}`);
+    // Handle AI SDK errors
+    if (error instanceof Error) {
+      throw new Error(`AI generation error: ${error.message}`);
     }
     throw error;
   }
@@ -202,45 +171,34 @@ Refine the section above based on the refinement instructions. Maintain the prof
 Generate the refined section now:`;
 
   const startTime = Date.now();
-  let inputTokens = 0;
-  let outputTokens = 0;
 
   try {
-    const anthropic = getAnthropicClient();
-
-    const stream = await anthropic.messages.stream({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
-      messages: [{
-        role: 'user',
-        content: prompt,
-      }],
+    // Stream text generation using Vercel AI SDK
+    const result = streamText({
+      model: openai(MODEL),
+      prompt,
     });
 
-    for await (const event of stream) {
-      if (event.type === 'content_block_delta') {
-        if (event.delta.type === 'text_delta') {
-          yield event.delta.text;
-        }
-      } else if (event.type === 'message_start') {
-        inputTokens = event.message.usage.input_tokens;
-      } else if (event.type === 'message_delta') {
-        if (event.usage) {
-          outputTokens = event.usage.output_tokens;
-        }
-      }
+    // Stream text chunks to caller
+    for await (const chunk of result.textStream) {
+      yield chunk;
     }
 
+    // Get final usage statistics
+    const usage = await result.usage;
     const duration = Date.now() - startTime;
 
     return {
-      tokenUsage: { inputTokens, outputTokens },
+      tokenUsage: {
+        inputTokens: usage.promptTokens,
+        outputTokens: usage.completionTokens,
+      },
       model: MODEL,
       duration,
     };
   } catch (error) {
-    if (error instanceof Anthropic.APIError) {
-      throw new Error(`Claude API error (${error.status}): ${error.message}`);
+    if (error instanceof Error) {
+      throw new Error(`AI refinement error: ${error.message}`);
     }
     throw error;
   }

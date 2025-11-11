@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { useAuthStore } from '@/lib/stores/auth.store';
 
 interface ExtractionStatus {
   status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -31,7 +32,12 @@ export function ExtractionPreview({ documentId }: ExtractionPreviewProps) {
 
     const fetchStatus = async () => {
       try {
-        const res = await fetch(`/api/documents/${documentId}/extraction`);
+        const accessToken = useAuthStore.getState().accessToken;
+        const res = await fetch(`/api/documents/${documentId}/extraction`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+          },
+        });
 
         if (!res.ok) {
           throw new Error('Failed to fetch extraction status');

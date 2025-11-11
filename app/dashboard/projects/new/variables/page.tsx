@@ -12,6 +12,7 @@ import { VariablesForm } from '@/components/generation/variables-form';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
+import { useAuthStore } from '@/lib/stores/auth.store';
 
 export default function VariablesPage() {
   const searchParams = useSearchParams();
@@ -29,7 +30,12 @@ export default function VariablesPage() {
     }
 
     // Fetch template details
-    fetch(`/api/templates/${templateId}`)
+    const accessToken = useAuthStore.getState().accessToken;
+    fetch(`/api/templates/${templateId}`, {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+      },
+    })
       .then(res => {
         if (!res.ok) throw new Error('Failed to load template');
         return res.json();
@@ -48,9 +54,13 @@ export default function VariablesPage() {
   const handleGenerate = async (variables: Record<string, any>) => {
     try {
       // Create project with template and variables
+      const accessToken = useAuthStore.getState().accessToken;
       const response = await fetch('/api/projects', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({
           templateId,
           variables,

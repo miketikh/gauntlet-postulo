@@ -94,7 +94,7 @@ graph TB
     end
 
     subgraph "External Services"
-        Anthropic[Anthropic Claude API<br/>AI Generation]
+        OpenAI[OpenAI API<br/>AI Generation via Vercel AI SDK]
     end
 
     WebApp -->|HTTPS/WSS| LB
@@ -102,12 +102,12 @@ graph TB
 
     API -->|SQL| DB
     API -->|Store/Retrieve| S3
-    API -->|Stream| Anthropic
+    API -->|Stream| OpenAI
 
     style WebApp fill:#bbf,stroke:#333,stroke-width:2px
     style API fill:#fbb,stroke:#333,stroke-width:2px
     style DB fill:#bfb,stroke:#333,stroke-width:2px
-    style Anthropic fill:#f9f,stroke:#333,stroke-width:2px
+    style OpenAI fill:#f9f,stroke:#333,stroke-width:2px
 ```
 
 ### Architectural Patterns
@@ -508,7 +508,7 @@ npm run dev
 DATABASE_URL=postgresql://localhost:5432/steno
 JWT_SECRET=your-secret-key-change-in-production
 JWT_REFRESH_SECRET=your-refresh-secret-change-in-production
-ANTHROPIC_API_KEY=your-anthropic-key
+OPENAI_API_KEY=your-openai-api-key
 AWS_ACCESS_KEY_ID=your-aws-key
 AWS_SECRET_ACCESS_KEY=your-aws-secret
 S3_BUCKET_NAME=steno-documents

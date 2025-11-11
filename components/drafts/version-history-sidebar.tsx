@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { useAuthStore } from '@/lib/stores/auth.store';
 
 // Icons - using Unicode symbols as fallback if lucide-react not installed
 const HistoryIcon = () => <span style={{ fontSize: '1.25rem' }}>⏱</span>;
@@ -53,9 +54,10 @@ export function VersionHistorySidebar({
       setLoading(true);
       setError(null);
 
+      const accessToken = useAuthStore.getState().accessToken;
       const response = await fetch(`/api/drafts/${draftId}/versions`, {
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 
@@ -81,10 +83,11 @@ export function VersionHistorySidebar({
     try {
       setRestoring(version);
 
+      const accessToken = useAuthStore.getState().accessToken;
       const response = await fetch(`/api/drafts/${draftId}/restore/${version}`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+          Authorization: `Bearer ${accessToken}`,
         },
       });
 

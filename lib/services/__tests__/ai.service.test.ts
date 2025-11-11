@@ -148,13 +148,13 @@ describe('AI Service', () => {
     });
 
     // Note: We don't test actual API calls in unit tests to avoid costs and rate limits
-    // Integration tests will mock the Anthropic API
+    // Integration tests will mock the Vercel AI SDK
   });
 
   describe('refineSection', () => {
     it('should construct refinement prompt with section content and instructions', () => {
       // This is a minimal test since we can't easily test the actual async generator
-      // without mocking the entire Anthropic SDK
+      // without mocking the entire Vercel AI SDK
       expect(refineSection).toBeDefined();
       expect(typeof refineSection).toBe('function');
     });

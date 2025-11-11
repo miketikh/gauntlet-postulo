@@ -9,6 +9,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect, useRef } from 'react';
 import { StreamingView } from '@/components/generation/streaming-view';
+import { useAuthStore } from '@/lib/stores/auth.store';
 
 export default function GeneratePage() {
   const params = useParams();
@@ -51,11 +52,12 @@ export default function GeneratePage() {
     try {
       abortControllerRef.current = new AbortController();
 
+      const accessToken = useAuthStore.getState().accessToken;
       const response = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`,
+          'Authorization': `Bearer ${accessToken}`,
         },
         body: JSON.stringify({
           projectId,

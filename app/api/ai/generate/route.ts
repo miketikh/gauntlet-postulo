@@ -19,7 +19,7 @@ import { z } from 'zod';
 const generateRequestSchema = z.object({
   projectId: z.string().uuid('Invalid project ID'),
   templateId: z.string().uuid('Invalid template ID'),
-  variables: z.record(z.any()),
+  variables: z.record(z.string(), z.any()),
 });
 
 /**

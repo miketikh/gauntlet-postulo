@@ -17,15 +17,18 @@ import { createErrorResponse, NotFoundError } from '@/lib/errors';
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Authenticate user
     const user = await requireAuth(req);
 
+    // Await params (Next.js 15 requirement)
+    const { id } = await params;
+
     // Fetch template by ID
     const template = await db.query.templates.findFirst({
-      where: eq(templates.id, params.id),
+      where: eq(templates.id, id),
     });
 
     if (!template) {
