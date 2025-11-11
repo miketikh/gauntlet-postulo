@@ -1,0 +1,719 @@
+# Epic 5 & 6 Parallel Execution Plan
+
+**Purpose:** Guide for executing Epic 5 (AI Refinement & Export) and Epic 6 (Production Readiness & Polish) with 3-4 parallel engineers to minimize conflicts and maximize throughput.
+
+**Status:** Ready for Execution (Epic 4 Complete)
+**Duration:** 7-8 weeks with 4 engineers
+**Last Updated:** 2025-11-11
+
+---
+
+## Executive Summary
+
+### Key Findings
+
+1. **Epic 5 Tracks Are Fully Independent**
+   - Track A (Refinement: 5.1-5.6) and Track B (Export: 5.7-5.11) have zero conflicts
+   - Can run in parallel with 2 engineers
+
+2. **Most of Epic 6 Can Start Immediately**
+   - Stories 6.1-6.12 polish existing Epic 1-4 features
+   - Can run in parallel with Epic 5
+
+3. **Critical Dependency: Story 6.13 Blocked by Epic 5**
+   - 6.13 (Admin Panel) requires 5.9 (Letterhead) + 5.10 (Export Analytics)
+   - This is NOT documented in workflow_execution.md (needs correction)
+
+4. **Timeline**
+   - Weeks 1-4: Parallel Epic 5 + Epic 6 (6.1-6.12)
+   - Week 4: 5.9 & 5.10 complete → unblocks 6.13
+   - Weeks 5-6: Complete Epic 5 Track A + 6.13 (Admin Panel)
+   - Week 7: Final deployment (6.14)
+
+---
+
+## Epic 5: AI Refinement & Export
+
+### Track A: AI Refinement (Stories 5.1-5.6)
+
+**Purpose:** Allow users to refine AI-generated content with custom prompts and quick actions
+
+**Sequential Chain:**
+```
+5.1 (Refinement UI Design)
+  ↓
+[5.2 (Quick Actions) || 5.3 (Refinement API)] — parallel
+  ↓
+5.4 (Preview & Apply UI)
+  ↓
+[5.5 (Refinement History) || 5.6 (Context Preservation)] — parallel
+```
+
+**Dependencies:**
+- 5.1 → Prerequisites: 4.1 (editor), 2.6 (Claude API) ✅ Complete
+- 5.2 → Prerequisites: 5.1
+- 5.3 → Prerequisites: 2.6, 2.7, 5.1
+- 5.4 → Prerequisites: 5.3, 5.1
+- 5.5 → Prerequisites: 5.4, 5.3
+- 5.6 → Prerequisites: 5.3, 2.7
+
+**Files/Modules:**
+- `components/editor/refinement-panel.tsx`
+- `app/api/ai/refine/route.ts`
+- `lib/services/refinement.service.ts`
+- New table: `ai_refinements`
+
+**Duration:** 6-7 weeks (1 engineer)
+
+---
+
+### Track B: Export (Stories 5.7-5.11)
+
+**Purpose:** Export demand letters to Word/PDF with letterhead and email delivery
+
+**Sequential Chain:**
+```
+5.7 (Word Export Core)
+  ↓
+[5.8 (Export UI) || 5.9 (Letterhead) || 5.10 (Version Tagging)] — all parallel
+  ↓
+5.11 (Email Export)
+```
+
+**Dependencies:**
+- 5.7 → Prerequisites: 4.1 (editor), 3.2 (templates) ✅ Complete
+- 5.8 → Prerequisites: 5.7, 4.10 (editor layout) ✅ Complete
+- 5.9 → Prerequisites: 5.7, 3.2 (templates) ✅ Complete
+- 5.10 → Prerequisites: 5.7, 2.9 (version history) ✅ Complete
+- 5.11 → Prerequisites: 5.8, 5.7, email infrastructure
+
+**Files/Modules:**
+- `app/api/drafts/[id]/export/route.ts`
+- `lib/services/export.service.ts`
+- `components/editor/export-modal.tsx`
+- New table: `draft_exports`
+- Schema changes: `firms` table (letterhead fields)
+
+**Duration:** 4-5 weeks (1 engineer)
+
+**Critical Note:** 5.9 and 5.10 completion unblocks Story 6.13
+
+---
+
+### Track Independence Verification
+
+| Aspect | Track A | Track B | Conflicts? |
+|--------|---------|---------|------------|
+| **Files** | refinement-panel.tsx, refine/route.ts | export-modal.tsx, export/route.ts | ❌ None |
+| **API Routes** | /api/ai/refine/* | /api/drafts/:id/export/* | ❌ None |
+| **Database** | ai_refinements table | draft_exports table, firms schema | ❌ None |
+| **Services** | refinement.service.ts | export.service.ts | ❌ None |
+
+**Verdict:** ✅ Tracks A and B are FULLY INDEPENDENT - can run in parallel
+
+---
+
+## Epic 6: Production Readiness & Polish
+
+### Stories 6.1-6.12: Independent Polish (Can Start Immediately)
+
+These stories refine existing Epic 1-4 features and can run while Epic 5 progresses:
+
+**Testing & Quality (6.1, 6.2, 6.5, 6.6):**
+- 6.1 - Unit + Integration Test Coverage (80%+ backend, 70%+ frontend)
+- 6.2 - E2E Tests with Playwright/Cypress
+- 6.5 - Security Audit (OWASP Top 10, penetration testing)
+- 6.6 - WCAG 2.1 AA Accessibility Compliance
+
+**Performance (6.3, 6.4):**
+- 6.3 - Database Query Optimization (indexes, N+1 resolution)
+- 6.4 - Frontend Bundle Optimization (code splitting, <300KB)
+
+**Monitoring & Compliance (6.7, 6.8):**
+- 6.7 - Production Monitoring (CloudWatch, Sentry, alerts)
+- 6.8 - Audit Logging for Compliance (immutable logs, 7-year retention)
+
+**UX Polish (6.9, 6.10, 6.11, 6.12):**
+- 6.9 - User-Friendly Error Handling
+- 6.10 - Loading States & Progress Indicators
+- 6.11 - Responsive Design Refinements
+- 6.12 - User Documentation & Onboarding
+
+**Dependencies:** All require Epic 1-4 complete ✅
+
+**Duration:** 4 weeks (2 engineers working in parallel)
+
+---
+
+### Story 6.13: Admin Panel (BLOCKED by Epic 5)
+
+**Prerequisites:**
+- 1.9 (RBAC) ✅ Complete
+- 6.8 (Audit Logging) - in same epic
+- **5.9 (Letterhead Configuration)** ⚠️ Epic 5 Track B
+- **5.10 (Export Analytics)** ⚠️ Epic 5 Track B
+
+**Features:**
+1. User Management (list, add, edit, deactivate)
+2. Firm Settings (name, address, contact, **letterhead config**, default template, billing)
+3. Usage Analytics (letters generated, AI tokens, **export counts**, user adoption)
+4. Audit Log Viewer
+5. System Health Dashboard
+
+**Blocking Dependencies:**
+- **Letterhead Configuration** (5.9) - Admin panel provides UI to configure letterhead used in exports
+- **Export Counts** (5.10) - Admin panel shows export analytics from `draft_exports` table
+
+**Workaround:** Can build 80% of admin panel (user management, basic settings, AI analytics) while waiting for 5.9/5.10. Add letterhead and export analytics sections after Epic 5 Track B completes.
+
+**Duration:** 1.5-2 weeks (can start Week 4 when 5.9/5.10 complete)
+
+---
+
+### Story 6.14: Production Deployment (MUST BE LAST)
+
+**Prerequisites:** ALL of 6.1-6.13 complete
+
+**Tasks:**
+- Production environment provisioning (AWS Lightsail)
+- Blue-green deployment setup
+- Smoke tests and monitoring verification
+- Rollback plan testing
+
+**Duration:** 1 week (all engineers coordinate)
+
+---
+
+## Conflict Analysis & Coordination
+
+### Database Conflicts
+
+**Potential Issues:**
+1. **5.9 + 6.3**: Story 5.9 adds letterhead fields to `firms` table; Story 6.3 adds indexes to same table
+2. **6.3 + 6.8**: Both create migrations (6.3 for indexes, 6.8 for audit_logs)
+
+**Resolution:**
+- Coordinate migration timing: 5.9 schema changes first → 6.3 optimization second
+- Merge 6.3 and 6.8 database work into single migration if possible
+- Assign to same engineer or daily sync
+
+### Middleware Conflicts
+
+**Potential Issues:**
+1. **6.8 + 6.9**: Story 6.8 adds audit logging middleware; Story 6.9 refactors error handling middleware
+
+**Resolution:**
+- Assign both to same engineer (Engineer 3 in plan below)
+- Implement 6.8 first, then refactor errors in 6.9
+- Both touch `lib/middleware/` files
+
+### Frontend Component Conflicts
+
+**Potential Issues:**
+1. **6.10 + 6.11**: Both modify existing components (loading states vs responsive styling)
+
+**Resolution:**
+- Assign to same engineer (Engineer 4)
+- 6.10 adds loading UI, 6.11 adjusts breakpoints/layout
+- Coordinate changes to avoid Tailwind conflicts
+
+### API Endpoint Conflicts
+
+**None identified** - Epic 5 and Epic 6 create different routes
+
+---
+
+## Recommended 4-Engineer Execution Plan
+
+### Team Assignments
+
+#### Engineer 1: Epic 5 Track A (AI Refinement)
+**Focus:** Refinement features for AI-generated content
+
+**Timeline:**
+- **Week 1-2:** 5.1 (Refinement UI Design)
+- **Week 3:** 5.2 (Quick Actions) + Start 5.3 (Refinement API)
+- **Week 4:** Complete 5.3 (Refinement API)
+- **Week 5:** 5.4 (Preview & Apply UI)
+- **Week 6:** 5.5 (Refinement History) + 5.6 (Context Preservation)
+- **Week 7:** Support 6.14 (Deployment)
+
+**Deliverables:**
+- Refinement panel UI integrated into editor
+- AI refinement API with streaming support
+- Refinement history tracking
+- Context preservation across refinements
+
+---
+
+#### Engineer 2: Epic 5 Track B (Export) → 6.13 (Admin)
+**Focus:** Export features, then admin panel
+
+**Timeline:**
+- **Week 1-2:** 5.7 (Word Export Core - .docx generation)
+- **Week 3:** 5.8 (Export UI) + 5.9 (Letterhead Configuration)
+- **Week 4:** 5.10 (Version Tagging) + 5.11 (Email Export)
+- **Week 5-6:** 6.13 (Admin Panel - lead implementation)
+- **Week 7:** Support 6.14 (Deployment)
+
+**Deliverables:**
+- Word document export with letterhead
+- Export UI with preview
+- Email delivery option
+- Admin panel for firm management (after 5.9/5.10 complete)
+
+**Critical Milestone:** Week 4 completion of 5.9 + 5.10 unblocks 6.13
+
+---
+
+#### Engineer 3: Epic 6 Backend/Infrastructure
+**Focus:** Testing, database, monitoring, security
+
+**Timeline:**
+- **Week 1-2:** 6.1 (Unit/Integration Tests) + 6.3 (DB Optimization)
+- **Week 3:** 6.7 (Monitoring Setup) + 6.8 (Audit Logging)
+- **Week 4:** 6.9 (Error Handling) + 6.5 (Security Audit)
+- **Week 5-6:** 6.2 (E2E Tests) + Support 6.13 (Admin Panel backend)
+- **Week 7:** Lead 6.14 (Production Deployment)
+
+**Deliverables:**
+- Comprehensive test coverage
+- Database indexes and query optimization
+- CloudWatch + Sentry monitoring
+- Audit logging system
+- Security hardening
+
+**Coordination:** Handle both 6.8 and 6.9 (middleware changes)
+
+---
+
+#### Engineer 4: Epic 6 Frontend/UX
+**Focus:** Frontend optimization, accessibility, UX polish
+
+**Timeline:**
+- **Week 1-2:** 6.4 (Frontend Optimization) + 6.6 (WCAG Compliance)
+- **Week 3:** 6.10 (Loading States) + 6.11 (Responsive Design)
+- **Week 4:** 6.12 (Documentation) + Start 6.2 (E2E Tests)
+- **Week 5-6:** Complete 6.2 (E2E Tests) + Support 6.13 (Admin Panel UI)
+- **Week 7:** Support 6.14 (Deployment)
+
+**Deliverables:**
+- Bundle size under 300KB, Lighthouse 90+
+- WCAG 2.1 AA compliance
+- Loading skeletons and progress bars throughout
+- Responsive design at all breakpoints
+- User documentation and onboarding flow
+
+**Coordination:** Handle both 6.10 and 6.11 (component styling changes)
+
+---
+
+## Week-by-Week Execution Timeline
+
+### Week 1-2: Parallel Foundation
+**All Engineers Active**
+
+| Engineer | Stories | Focus |
+|----------|---------|-------|
+| 1 | 5.1 | Refinement UI design |
+| 2 | 5.7 | Word export core (.docx generation) |
+| 3 | 6.1, 6.3 | Tests + DB optimization |
+| 4 | 6.4, 6.6 | Bundle optimization + WCAG |
+
+**Standup Topics:**
+- Database migration coordination (6.3)
+- Test infrastructure setup (6.1)
+
+---
+
+### Week 3: Parallel Development
+**All Engineers Active**
+
+| Engineer | Stories | Focus |
+|----------|---------|-------|
+| 1 | 5.2, 5.3 (start) | Quick actions + refinement API |
+| 2 | 5.8, 5.9 | Export UI + letterhead config |
+| 3 | 6.7, 6.8 | Monitoring + audit logging |
+| 4 | 6.10, 6.11 | Loading states + responsive |
+
+**Standup Topics:**
+- Middleware conflicts (6.8 + 6.9) - Engineer 3
+- Schema changes for 5.9 (firms table letterhead fields)
+
+---
+
+### Week 4: Critical Milestone - Unblock 6.13
+**All Engineers Active**
+
+| Engineer | Stories | Focus |
+|----------|---------|-------|
+| 1 | 5.3 (complete) | Complete refinement API |
+| 2 | **5.10, 5.11** | **Export analytics + email** |
+| 3 | 6.9, 6.5 | Error handling + security audit |
+| 4 | 6.12, 6.2 (start) | Documentation + E2E tests |
+
+**Critical Milestone:** 5.9 (Week 3) + 5.10 (Week 4) complete → **6.13 Admin Panel unblocked**
+
+**Standup Topics:**
+- Confirm 5.9 + 5.10 completion
+- Begin 6.13 planning (Engineer 2 lead)
+
+---
+
+### Week 5-6: Convergence on Admin Panel
+**Completing Epic 5 Track A + Building 6.13**
+
+| Engineer | Stories | Focus |
+|----------|---------|-------|
+| 1 | 5.4, 5.5, 5.6 | Preview UI + history + context |
+| 2 | **6.13** | **Admin panel - lead development** |
+| 3 | 6.2, 6.13 (backend) | E2E tests + admin APIs |
+| 4 | 6.2, 6.13 (UI) | E2E tests + admin UI components |
+
+**Deliverables:**
+- Epic 5 Track A complete (5.1-5.6) ✅
+- Epic 5 Track B complete (5.7-5.11) ✅
+- Story 6.13 Admin Panel complete ✅
+- E2E test coverage ✅
+
+---
+
+### Week 7: Final Integration & Deployment
+**All Engineers Coordinate**
+
+| All Engineers | Story | Focus |
+|---------------|-------|-------|
+| 1, 2, 3, 4 | **6.14** | **Production deployment** |
+
+**Tasks:**
+- Final regression testing
+- Production environment provisioning (AWS Lightsail)
+- Blue-green deployment setup
+- Smoke tests
+- Monitoring verification
+- Documentation review
+- Rollback plan testing
+
+**Go/No-Go Decision:** Based on:
+- All tests passing (unit, integration, E2E)
+- Security audit complete
+- Performance benchmarks met
+- WCAG compliance verified
+
+---
+
+## Critical Path Analysis
+
+### Longest Sequential Chain (Epic 5 Track A)
+```
+5.1 (2 weeks) → 5.3 (2 weeks) → 5.4 (1.5 weeks) → 5.6 (1 week) = 6.5 weeks
+```
+*This determines minimum timeline*
+
+### Epic 5 Track B (Shorter Path)
+```
+5.7 (2 weeks) → 5.9 (1 week) → 5.11 (1 week) = 4 weeks
+```
+
+### Epic 6 Path with 6.13 Dependency
+```
+6.1-6.12 (4 weeks parallel) → 6.13 (1.5 weeks, waits for 5.9+5.10 Week 4) → 6.14 (1 week)
+```
+
+### Overall Critical Path
+```
+Week 1-4: Epic 5 Track A + B in parallel (4 weeks)
+Week 4: Milestone - 5.9+5.10 complete, unblock 6.13
+Week 5-6: Complete Epic 5 Track A + build 6.13 (2 weeks)
+Week 7: Deploy (1 week)
+Total: 7 weeks
+```
+
+---
+
+## Dependency Matrix
+
+### Epic 5 Internal Dependencies
+
+| Story | Depends On | Can Start After |
+|-------|------------|-----------------|
+| 5.1 | 4.1, 2.6 (✅) | Immediately |
+| 5.2 | 5.1 | Week 3 |
+| 5.3 | 5.1, 2.6, 2.7 (✅) | Week 3 |
+| 5.4 | 5.3 | Week 5 |
+| 5.5 | 5.4 | Week 6 |
+| 5.6 | 5.3 | Week 6 |
+| 5.7 | 4.1, 3.2 (✅) | Immediately |
+| 5.8 | 5.7 | Week 3 |
+| 5.9 | 5.7 | Week 3 |
+| 5.10 | 5.7 | Week 4 |
+| 5.11 | 5.8 | Week 4 |
+
+### Epic 6 Internal Dependencies
+
+| Story | Depends On | Can Start After |
+|-------|------------|-----------------|
+| 6.1 | Epic 1-4 (✅) | Immediately |
+| 6.2 | Epic 1-4 (✅) | Immediately |
+| 6.3 | 1.4 (✅) | Immediately |
+| 6.4 | 1.2, 4.10 (✅) | Immediately |
+| 6.5 | Epic 1-4 (✅) | Immediately |
+| 6.6 | Frontend (✅) | Immediately |
+| 6.7 | 1.5, 1.12 (✅) | Immediately |
+| 6.8 | 1.4, 1.9 (✅) | Immediately |
+| 6.9 | APIs (✅) | Immediately |
+| 6.10 | Frontend (✅) | Immediately |
+| 6.11 | Frontend (✅) | Immediately |
+| 6.12 | All features (✅) | Immediately |
+| **6.13** | **5.9, 5.10** ⚠️ | **Week 5** (after 5.9+5.10) |
+| 6.14 | 6.1-6.13 | Week 7 |
+
+### Cross-Epic Dependencies
+
+```
+Epic 5 (5.9 Letterhead) ─────┐
+                              ├──→ Epic 6 (6.13 Admin Panel)
+Epic 5 (5.10 Export Analytics)─┘
+```
+
+---
+
+## Conflict Coordination Checklist
+
+### Before Starting (Week 0)
+
+- [ ] Assign stories to engineers per plan above
+- [ ] Create story files for all Epic 5 & 6 stories
+- [ ] Set up feature branches: `epic-5-track-a`, `epic-5-track-b`, `epic-6-polish`
+- [ ] Review conflict areas with all engineers
+- [ ] Establish daily standup schedule
+
+### Week 1 Checkpoints
+
+- [ ] Engineer 3: Coordinate 6.1 (test infrastructure) + 6.3 (DB migrations)
+- [ ] All: Confirm no overlapping file changes
+
+### Week 3 Checkpoints
+
+- [ ] Engineer 2: Complete 5.9 schema changes to `firms` table (letterhead fields)
+- [ ] Engineer 3: Coordinate 6.8 (audit middleware) before 6.9 (error middleware)
+- [ ] Merge 5.9 changes before Engineer 3 starts 6.3 optimization
+
+### Week 4 Checkpoints
+
+- [ ] **CRITICAL:** Confirm 5.9 (Letterhead) complete ✅
+- [ ] **CRITICAL:** Confirm 5.10 (Export Analytics) complete ✅
+- [ ] Engineer 2: Begin 6.13 (Admin Panel) planning
+- [ ] Review 6.13 scope with Engineers 2, 3, 4
+
+### Week 5-6 Checkpoints
+
+- [ ] Daily syncs on 6.13 (3 engineers collaborating)
+- [ ] Engineer 1: Complete Epic 5 Track A
+- [ ] All: Code reviews for 6.13 admin panel features
+
+### Week 7 Checkpoints
+
+- [ ] Final regression test pass
+- [ ] Security audit sign-off (6.5)
+- [ ] Performance benchmarks met (6.3, 6.4)
+- [ ] WCAG compliance verified (6.6)
+- [ ] Go/No-Go decision for 6.14 deployment
+
+---
+
+## Risk Mitigation
+
+### Risk 1: 5.9 Schema Changes Block 6.3 Optimization
+
+**Impact:** High - Database schema conflicts
+
+**Mitigation:**
+- Complete 5.9 in Week 3 (Engineer 2)
+- Engineer 3 starts 6.3 optimization in Week 1-2 (before 5.9)
+- Coordinate migrations: 6.3 indexes after 5.9 schema changes
+- Daily sync between Engineers 2 & 3
+
+### Risk 2: 6.13 Starts Before 5.9/5.10 Complete
+
+**Impact:** Medium - Rework required for letterhead and analytics
+
+**Mitigation:**
+- Hard block 6.13 start until Week 5 (after 5.9+5.10 confirmed Week 4)
+- Build 6.13 MVP without letterhead/analytics first, add later if needed
+- Clear milestone tracking for 5.9 and 5.10 completion
+
+### Risk 3: Middleware Conflicts (6.8 + 6.9)
+
+**Impact:** Medium - Merge conflicts in `lib/middleware/`
+
+**Mitigation:**
+- Assign both 6.8 and 6.9 to Engineer 3
+- Implement 6.8 (audit) first, then 6.9 (errors)
+- Single feature branch for both stories
+
+### Risk 4: Epic 5 Track A Takes Longer Than Expected
+
+**Impact:** High - Delays overall timeline
+
+**Mitigation:**
+- Buffer built into Week 6-7 timeline
+- Engineer 2 can assist with 5.4-5.6 after completing Track B in Week 4
+- Parallelize 5.5 and 5.6 aggressively
+
+### Risk 5: E2E Tests (6.2) Reveal Blocking Issues
+
+**Impact:** High - Delays deployment
+
+**Mitigation:**
+- Start 6.2 in Week 4 (Engineers 3 & 4)
+- Run E2E tests continuously in Weeks 5-6
+- Fix issues immediately as Engineer 1 & 2 complete features
+- Dedicate Week 7 to final testing and fixes
+
+---
+
+## Success Criteria
+
+### Epic 5 Completion
+
+- [ ] All 11 stories (5.1-5.11) complete and merged
+- [ ] Users can refine AI-generated content with custom prompts
+- [ ] Users can export demand letters to Word with letterhead
+- [ ] Users can email exported documents
+- [ ] New tables created: `ai_refinements`, `draft_exports`
+- [ ] Schema updated: `firms` table has letterhead fields
+
+### Epic 6 Completion
+
+- [ ] All 14 stories (6.1-6.14) complete and merged
+- [ ] Test coverage: 80%+ backend, 70%+ frontend
+- [ ] E2E tests passing for critical flows
+- [ ] Database queries optimized (95th percentile <100ms)
+- [ ] Frontend bundle <300KB, Lighthouse score 90+
+- [ ] Security audit passed (OWASP Top 10)
+- [ ] WCAG 2.1 AA compliance verified
+- [ ] Monitoring and alerting configured (CloudWatch, Sentry)
+- [ ] Audit logging implemented with 7-year retention
+- [ ] Admin panel functional with user management and firm settings
+- [ ] Production deployment complete with smoke tests passing
+
+### Overall Timeline Met
+
+- [ ] Epic 5 + 6 completed in 7-8 weeks
+- [ ] No major merge conflicts
+- [ ] All engineers productive throughout (no blocking)
+- [ ] 6.13 started only after 5.9+5.10 complete (Week 5)
+
+---
+
+## Correction to workflow_execution.md
+
+### Current Error in workflow_execution.md (Line 147)
+
+**Current Text:**
+```
+├─ 6.13 (Admin panel)
+  ↓
+6.14 (Production deployment) — MUST BE LAST
+```
+
+**Implies:** 6.13 can run in parallel with other Epic 6 stories (6.1-6.12)
+
+**Reality:** ❌ INCORRECT - 6.13 has dependencies on Epic 5
+
+### Corrected Text
+
+**Should Be:**
+```
+├─ 6.13 (Admin panel) — BLOCKED until Epic 5 stories 5.9 + 5.10 complete
+  ↓
+6.14 (Production deployment) — MUST BE LAST
+```
+
+**Dependency Chain:**
+```
+Epic 5 (5.9 Letterhead Configuration) ────┐
+                                           ├──→ Epic 6 (6.13 Admin Panel)
+Epic 5 (5.10 Version Tagging/Analytics) ──┘
+```
+
+### Updated Epic 6 Execution Flow
+
+**Old (Incorrect):**
+```
+START all together:
+├─ 6.1-6.13 (all 13 stories parallel)
+  ↓
+6.14 (Deployment)
+```
+
+**New (Correct):**
+```
+START immediately:
+├─ 6.1-6.12 (12 stories parallel with Epic 5)
+  ↓
+Wait for Epic 5 (5.9 + 5.10) to complete...
+  ↓
+├─ 6.13 (Admin panel) — starts Week 5
+  ↓
+6.14 (Deployment) — MUST BE LAST
+```
+
+---
+
+## Reference Links
+
+- **PRD Epic 5:** `/docs/prd/epic-5-ai-refinement-export-capabilities.md`
+- **PRD Epic 6:** `/docs/prd/epic-6-production-readiness-polish.md`
+- **Architecture:** `/docs/architecture.md`
+- **Workflow (needs correction):** `/docs/workflow_execution.md`
+
+---
+
+## Appendix: Story Estimates
+
+### Epic 5 Estimates
+
+| Story | Title | Estimate | Engineer |
+|-------|-------|----------|----------|
+| 5.1 | Refinement UI Design | 2 weeks | 1 |
+| 5.2 | Quick Action Buttons | 1 week | 1 |
+| 5.3 | Refinement API | 2 weeks | 1 |
+| 5.4 | Preview & Apply UI | 1.5 weeks | 1 |
+| 5.5 | Refinement History | 1 week | 1 |
+| 5.6 | Context Preservation | 1 week | 1 |
+| 5.7 | Word Export Core | 2 weeks | 2 |
+| 5.8 | Export UI | 1 week | 2 |
+| 5.9 | Letterhead Formatting | 1 week | 2 |
+| 5.10 | Version Tagging | 1 week | 2 |
+| 5.11 | Email Export | 1 week | 2 |
+
+**Total:** 15.5 weeks sequential, 6.5 weeks with 2 parallel engineers
+
+### Epic 6 Estimates
+
+| Story | Title | Estimate | Engineer |
+|-------|-------|----------|----------|
+| 6.1 | Unit/Integration Tests | 2 weeks | 3 |
+| 6.2 | E2E Tests | 2 weeks | 3, 4 |
+| 6.3 | DB Optimization | 1.5 weeks | 3 |
+| 6.4 | Frontend Optimization | 1.5 weeks | 4 |
+| 6.5 | Security Audit | 1 week | 3 |
+| 6.6 | WCAG Compliance | 1.5 weeks | 4 |
+| 6.7 | Monitoring Setup | 1 week | 3 |
+| 6.8 | Audit Logging | 1.5 weeks | 3 |
+| 6.9 | Error Handling | 1 week | 3 |
+| 6.10 | Loading States | 1 week | 4 |
+| 6.11 | Responsive Design | 1 week | 4 |
+| 6.12 | Documentation | 1.5 weeks | 4 |
+| 6.13 | Admin Panel | 1.5 weeks | 2, 3, 4 |
+| 6.14 | Deployment | 1 week | All |
+
+**Total:** 18.5 weeks sequential, 4-5 weeks with 3-4 parallel engineers (excluding 6.13 block)
+
+---
+
+**END OF EXECUTION PLAN**
+
+*This plan should be reviewed at the start of each week and adjusted based on actual progress. Daily standups are critical to coordinate the 3-4 parallel engineers and avoid conflicts.*
