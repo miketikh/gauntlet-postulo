@@ -148,3 +148,37 @@ export async function testS3Connection(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Upload document file to S3
+ * Convenience wrapper for File objects from multipart form data
+ */
+export async function uploadDocumentToS3(file: File, s3Key: string): Promise<string> {
+  const buffer = Buffer.from(await file.arrayBuffer());
+
+  const command = new PutObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: s3Key,
+    Body: buffer,
+    ContentType: file.type,
+    ServerSideEncryption: 'AES256', // Using AES256 encryption (can switch to aws:kms for KMS)
+    Metadata: {
+      originalName: file.name,
+      uploadedAt: new Date().toISOString(),
+    },
+  });
+
+  await s3Client.send(command);
+  return s3Key;
+}
+
+/**
+ * Get presigned URL for secure download
+ * Alias for getPresignedDownloadUrl with simpler signature
+ */
+export async function getPresignedUrl(s3Key: string, expiresIn: number = 3600): Promise<string> {
+  return getPresignedDownloadUrl({
+    key: s3Key,
+    expiresIn,
+  });
+}
