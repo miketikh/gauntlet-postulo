@@ -8,6 +8,34 @@
       "when": 1762833187465,
       "tag": "0000_aberrant_the_professor",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1762834000000,
+      "tag": "0001_add_source_documents_metadata_column",
+      "breakpoints": false
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1762834600000,
+      "tag": "0002_add_templates_is_active",
+      "breakpoints": false
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1762883774940,
+      "tag": "0003_parched_starhawk",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1762890000000,
+      "tag": "0004_add_templates_is_system_template",
+      "breakpoints": false
     }
   ]
 }

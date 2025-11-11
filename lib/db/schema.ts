@@ -1,10 +1,11 @@
-import { pgTable, uuid, varchar, timestamp, text, integer, jsonb, boolean, pgEnum } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, varchar, timestamp, text, integer, jsonb, boolean, pgEnum, index as pgIndex } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // Enums
 export const userRoleEnum = pgEnum('user_role', ['admin', 'attorney', 'paralegal']);
 export const projectStatusEnum = pgEnum('project_status', ['draft', 'in_review', 'completed', 'sent']);
 export const extractionStatusEnum = pgEnum('extraction_status', ['pending', 'processing', 'completed', 'failed']);
+export const permissionLevelEnum = pgEnum('permission_level', ['view', 'comment', 'edit']);
 
 // Firm Table
 export const firms = pgTable('firms', {
@@ -34,12 +35,18 @@ export const templates = pgTable('templates', {
   description: text('description'),
   sections: jsonb('sections').notNull().default([]),
   variables: jsonb('variables').notNull().default([]),
+  isActive: boolean('is_active').notNull().default(true),
+  isSystemTemplate: boolean('is_system_template').notNull().default(false),
   firmId: uuid('firm_id').notNull().references(() => firms.id, { onDelete: 'cascade' }),
   version: integer('version').notNull().default(1),
   createdBy: uuid('created_by').notNull().references(() => users.id),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => ({
+  firmIdIdx: pgIndex('templates_firm_id_idx').on(table.firmId),
+  isActiveIdx: pgIndex('templates_is_active_idx').on(table.isActive),
+  isSystemTemplateIdx: pgIndex('templates_is_system_template_idx').on(table.isSystemTemplate),
+}));
 
 // Project Table
 export const projects = pgTable('projects', {
@@ -74,7 +81,8 @@ export const sourceDocuments = pgTable('source_documents', {
 export const drafts = pgTable('drafts', {
   id: uuid('id').defaultRandom().primaryKey(),
   projectId: uuid('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }).unique(),
-  content: jsonb('content'), // Yjs Y.Doc encoded state
+  content: jsonb('content'), // Legacy: Lexical editor state (JSON)
+  yjsDocument: text('yjs_document'), // Yjs Y.Doc encoded state (base64-encoded binary)
   plainText: text('plain_text'),
   currentVersion: integer('current_version').notNull().default(1),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
@@ -90,8 +98,11 @@ export const draftSnapshots = pgTable('draft_snapshots', {
   plainText: text('plain_text'),
   createdBy: uuid('created_by').notNull().references(() => users.id),
   changeDescription: text('change_description'),
+  contributors: jsonb('contributors').notNull().default([]), // Array of {userId, name, changesCount}
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-});
+}, (table) => ({
+  contributorsIdx: pgIndex('draft_snapshots_contributors_idx').on(table.contributors),
+}));
 
 // Comment Table
 export const comments = pgTable('comments', {
@@ -106,6 +117,32 @@ export const comments = pgTable('comments', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+// Draft Collaborators Table (Permissions)
+export const draftCollaborators = pgTable('draft_collaborators', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  draftId: uuid('draft_id').notNull().references(() => drafts.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  permission: permissionLevelEnum('permission').notNull(),
+  invitedBy: uuid('invited_by').notNull().references(() => users.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  draftIdIdx: pgIndex('draft_collaborators_draft_id_idx').on(table.draftId),
+  userIdIdx: pgIndex('draft_collaborators_user_id_idx').on(table.userId),
+}));
+
+// Template Versions Table (for version history)
+export const templateVersions = pgTable('template_versions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  templateId: uuid('template_id').notNull().references(() => templates.id, { onDelete: 'cascade' }),
+  versionNumber: integer('version_number').notNull(),
+  structure: jsonb('structure').notNull(), // Stores sections and variables snapshot
+  createdBy: uuid('created_by').notNull().references(() => users.id),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => ({
+  templateIdIdx: pgIndex('template_versions_template_id_idx').on(table.templateId),
+}));
 
 // Relations
 export const firmsRelations = relations(firms, ({ many }) => ({
@@ -124,6 +161,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   uploadedDocuments: many(sourceDocuments),
   comments: many(comments),
   draftSnapshots: many(draftSnapshots),
+  draftCollaborations: many(draftCollaborators),
 }));
 
 export const templatesRelations = relations(templates, ({ one, many }) => ({
@@ -136,6 +174,7 @@ export const templatesRelations = relations(templates, ({ one, many }) => ({
     references: [users.id],
   }),
   projects: many(projects),
+  versions: many(templateVersions),
 }));
 
 export const projectsRelations = relations(projects, ({ one, many }) => ({
@@ -173,6 +212,7 @@ export const draftsRelations = relations(drafts, ({ one, many }) => ({
   }),
   snapshots: many(draftSnapshots),
   comments: many(comments),
+  collaborators: many(draftCollaborators),
 }));
 
 export const draftSnapshotsRelations = relations(draftSnapshots, ({ one }) => ({
@@ -193,6 +233,32 @@ export const commentsRelations = relations(comments, ({ one }) => ({
   }),
   author: one(users, {
     fields: [comments.authorId],
+    references: [users.id],
+  }),
+}));
+
+export const templateVersionsRelations = relations(templateVersions, ({ one }) => ({
+  template: one(templates, {
+    fields: [templateVersions.templateId],
+    references: [templates.id],
+  }),
+  creator: one(users, {
+    fields: [templateVersions.createdBy],
+    references: [users.id],
+  }),
+}));
+
+export const draftCollaboratorsRelations = relations(draftCollaborators, ({ one }) => ({
+  draft: one(drafts, {
+    fields: [draftCollaborators.draftId],
+    references: [drafts.id],
+  }),
+  user: one(users, {
+    fields: [draftCollaborators.userId],
+    references: [users.id],
+  }),
+  inviter: one(users, {
+    fields: [draftCollaborators.invitedBy],
     references: [users.id],
   }),
 }));
@@ -221,3 +287,9 @@ export type NewDraftSnapshot = typeof draftSnapshots.$inferInsert;
 
 export type Comment = typeof comments.$inferSelect;
 export type NewComment = typeof comments.$inferInsert;
+
+export type TemplateVersion = typeof templateVersions.$inferSelect;
+export type NewTemplateVersion = typeof templateVersions.$inferInsert;
+
+export type DraftCollaborator = typeof draftCollaborators.$inferSelect;
+export type NewDraftCollaborator = typeof draftCollaborators.$inferInsert;
