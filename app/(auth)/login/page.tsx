@@ -76,10 +76,6 @@ export default function LoginPage() {
       // Store tokens in auth store (also persists to localStorage)
       login(user, accessToken, refreshToken);
 
-      // Also store in cookies for SSR (optional, but recommended for Next.js)
-      document.cookie = `accessToken=${accessToken}; path=/; max-age=900; samesite=strict`;
-      document.cookie = `refreshToken=${refreshToken}; path=/; max-age=604800; samesite=strict`;
-
       // Redirect to dashboard
       router.push('/dashboard');
     } catch (err: any) {

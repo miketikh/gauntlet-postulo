@@ -35,7 +35,14 @@ export async function requireAuth(request: NextRequest): Promise<AuthenticatedUs
   const authHeader = request.headers.get('Authorization');
 
   // Extract token from header
-  const token = extractTokenFromHeader(authHeader);
+  let token = extractTokenFromHeader(authHeader);
+
+  if (!token) {
+    const cookieToken = request.cookies.get('accessToken')?.value;
+    if (cookieToken) {
+      token = cookieToken;
+    }
+  }
 
   if (!token) {
     throw new UnauthorizedError('Missing authentication token');
@@ -73,6 +80,10 @@ export async function optionalAuth(request: NextRequest): Promise<AuthenticatedU
  * Require specific role(s) for a route
  * Must be used after requireAuth
  *
+ * Story 3.9: Used for Template Access Control
+ * - Templates: Only admin/attorney can create/edit/delete
+ * - Paralegals have read-only access to templates
+ *
  * Usage:
  * ```typescript
  * export async function DELETE(req: NextRequest) {
@@ -81,6 +92,8 @@ export async function optionalAuth(request: NextRequest): Promise<AuthenticatedU
  *   // Only admins and attorneys can proceed
  * }
  * ```
+ *
+ * Returns 403 Forbidden if user's role is not in allowedRoles array
  */
 export function requireRole(
   user: AuthenticatedUser,
