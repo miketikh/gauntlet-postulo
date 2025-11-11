@@ -7,7 +7,7 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { StreamingView } from '@/components/generation/streaming-view';
 import { useAuthStore } from '@/lib/stores/auth.store';
 
@@ -15,6 +15,8 @@ export default function GeneratePage() {
   const params = useParams();
   const router = useRouter();
   const projectId = params.id as string;
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const logout = useAuthStore((state) => state.logout);
   const [content, setContent] = useState('');
   const [currentSection, setCurrentSection] = useState('');
   const [isGenerating, setIsGenerating] = useState(true);
@@ -22,37 +24,13 @@ export default function GeneratePage() {
   const [project, setProject] = useState<any>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    // First, fetch project details to get template and variables
-    fetch(`/api/projects/${projectId}`)
-      .then(res => {
-        if (!res.ok) throw new Error('Project not found');
-        return res.json();
-      })
-      .then(data => {
-        setProject(data.project);
-        // Start generation once we have project data
-        startGeneration(data.project);
-      })
-      .catch(err => {
-        console.error('Error loading project:', err);
-        setError('Failed to load project. Please try again.');
-        setIsGenerating(false);
-      });
+  const startGeneration = useCallback(async (projectData: any) => {
+    if (!accessToken) {
+      throw new Error('Missing authentication token');
+    }
 
-    return () => {
-      // Cleanup: abort on unmount
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, [projectId]);
-
-  const startGeneration = async (projectData: any) => {
     try {
       abortControllerRef.current = new AbortController();
-
-      const accessToken = useAuthStore.getState().accessToken;
       const response = await fetch('/api/ai/generate', {
         method: 'POST',
         headers: {
@@ -115,7 +93,71 @@ export default function GeneratePage() {
         setIsGenerating(false);
       }
     }
-  };
+  }, [accessToken, projectId, router]);
+
+  useEffect(() => {
+    if (!projectId) {
+      return;
+    }
+
+    if (!accessToken) {
+      setError('Authentication required. Please log in again.');
+      setIsGenerating(false);
+      router.push('/login');
+      return;
+    }
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    const fetchProject = async () => {
+      try {
+        const response = await fetch(`/api/projects/${projectId}`, {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          signal: controller.signal,
+        });
+
+        if (response.status === 401) {
+          logout();
+          router.push('/login');
+          throw new Error('Unauthorized');
+        }
+
+        if (!response.ok) {
+          throw new Error('Project not found');
+        }
+
+        const data = await response.json();
+
+        if (cancelled) return;
+
+        setProject(data.project);
+        await startGeneration(data.project);
+      } catch (err) {
+        if (cancelled) return;
+        if ((err as Error).name === 'AbortError') {
+          return;
+        }
+        console.error('Error loading project:', err);
+        setError(
+          err instanceof Error ? err.message : 'Failed to load project. Please try again.'
+        );
+        setIsGenerating(false);
+      }
+    };
+
+    fetchProject();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, [projectId, accessToken, logout, router, startGeneration]);
 
   const handleStop = () => {
     if (abortControllerRef.current) {

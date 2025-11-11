@@ -29,8 +29,6 @@ export default function DashboardLayout({
 
   const handleLogout = () => {
     logout();
-    // Clear cookie
-    document.cookie = 'accessToken=; path=/; max-age=0';
     router.push('/login');
   };
 
