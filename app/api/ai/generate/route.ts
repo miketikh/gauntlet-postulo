@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     const validationResult = generateRequestSchema.safeParse(body);
 
     if (!validationResult.success) {
-      throw new ValidationError('Invalid request body', validationResult.error.errors);
+      throw new ValidationError('Invalid request body', validationResult.error.issues);
     }
 
     const { projectId, templateId, variables } = validationResult.data;

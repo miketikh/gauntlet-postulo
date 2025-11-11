@@ -7,8 +7,8 @@
 'use client';
 
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -22,11 +22,20 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { FileText } from 'lucide-react';
+import { zodResolverV4 } from '@/lib/validations/zod-resolver';
+
+interface FieldError {
+  field: string;
+  message: string;
+}
 
 interface VariablesFormProps {
   template: any;
-  onSubmit: (variables: Record<string, any>) => void;
+  onSubmit: (variables: Record<string, any>) => Promise<void>;
+  error?: string | null;
+  fieldErrors?: FieldError[];
 }
 
 /**
@@ -45,11 +54,13 @@ function buildSchemaFromTemplate(template: any) {
   });
 }
 
-export function VariablesForm({ template, onSubmit }: VariablesFormProps) {
+export function VariablesForm({ template, onSubmit, error, fieldErrors }: VariablesFormProps) {
   const schema = buildSchemaFromTemplate(template);
 
   const form = useForm({
-    resolver: zodResolver(schema),
+    resolver: zodResolverV4(schema),
+    mode: 'onSubmit', // Only validate when user submits
+    reValidateMode: 'onChange', // After submit, revalidate as they type to show when errors are fixed
     defaultValues: {
       plaintiffName: '',
       defendantName: '',
@@ -60,15 +71,58 @@ export function VariablesForm({ template, onSubmit }: VariablesFormProps) {
     },
   });
 
-  const handleSubmit = (values: any) => {
-    onSubmit(values);
+  // Apply field errors from API to form
+  useEffect(() => {
+    if (fieldErrors && fieldErrors.length > 0) {
+      fieldErrors.forEach(({ field, message }) => {
+        form.setError(field as any, {
+          type: 'manual',
+          message,
+        });
+      });
+    } else {
+      form.clearErrors();
+    }
+  }, [fieldErrors, form]);
+
+  const handleSubmit = async (values: any) => {
+    try {
+      await onSubmit(values);
+    } catch (error) {
+      // Error handling is done in parent component
+      console.error('Form submission error:', error);
+    }
+  };
+
+  const handleInvalidSubmit = (errors: any) => {
+    console.log('=== FORM VALIDATION FAILED ===');
+    console.log('Errors:', errors);
+    console.log('Form state errors:', form.formState.errors);
+    console.log('Form isSubmitting:', form.formState.isSubmitting);
+    console.log('Form isValid:', form.formState.isValid);
+    // Errors should be displayed via FormMessage components
   };
 
   return (
     <Card>
       <CardContent className="pt-6">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(handleSubmit, handleInvalidSubmit)} className="space-y-6">
+            {/* Error Banner */}
+            {error && (
+              <Alert variant="destructive">
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>
+                  {error}
+                  {fieldErrors && fieldErrors.length > 0 && (
+                    <span className="block mt-1">
+                      Please fix the errors in the form fields below.
+                    </span>
+                  )}
+                </AlertDescription>
+              </Alert>
+            )}
+
             {/* Template Info */}
             <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <FileText className="h-5 w-5 text-blue-600 mt-0.5" />
@@ -215,6 +269,12 @@ export function VariablesForm({ template, onSubmit }: VariablesFormProps) {
               <p className="text-sm text-slate-500 text-center mt-3">
                 This will create a new project and start AI generation
               </p>
+              {/* Display validation error count */}
+              {Object.keys(form.formState.errors).length > 0 && (
+                <p className="text-sm text-red-600 text-center mt-2">
+                  Please fix {Object.keys(form.formState.errors).length} error{Object.keys(form.formState.errors).length > 1 ? 's' : ''} above
+                </p>
+              )}
             </div>
           </form>
         </Form>

@@ -14,17 +14,24 @@ import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { useAuthStore } from '@/lib/stores/auth.store';
 
+interface FieldError {
+  field: string;
+  message: string;
+}
+
 export default function VariablesPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const templateId = searchParams.get('templateId');
   const [template, setTemplate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [templateError, setTemplateError] = useState<string | null>(null);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldError[]>([]);
 
   useEffect(() => {
     if (!templateId) {
-      setError('No template selected');
+      setTemplateError('No template selected');
       setLoading(false);
       return;
     }
@@ -46,12 +53,16 @@ export default function VariablesPage() {
       })
       .catch(err => {
         console.error('Error loading template:', err);
-        setError('Failed to load template. Please try again.');
+        setTemplateError('Failed to load template. Please try again.');
         setLoading(false);
       });
   }, [templateId]);
 
   const handleGenerate = async (variables: Record<string, any>) => {
+    // Clear previous errors
+    setSubmissionError(null);
+    setFieldErrors([]);
+
     try {
       // Create project with template and variables
       const accessToken = useAuthStore.getState().accessToken;
@@ -70,7 +81,26 @@ export default function VariablesPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to create project');
+        // Parse error response
+        const errorData = await response.json();
+
+        if (errorData.error?.code === 'VALIDATION_ERROR' && errorData.error?.details) {
+          // Map validation errors to form fields
+          const mappedErrors: FieldError[] = errorData.error.details.map((detail: any) => ({
+            field: detail.path?.[0] || 'unknown',
+            message: detail.message || 'Invalid value',
+          }));
+
+          setFieldErrors(mappedErrors);
+          setSubmissionError(errorData.error.message || 'Validation failed. Please check the form fields.');
+        } else {
+          // Generic error
+          setSubmissionError(
+            errorData.error?.message ||
+            'Failed to create project. Please try again.'
+          );
+        }
+        return;
       }
 
       const { project } = await response.json();
@@ -79,7 +109,7 @@ export default function VariablesPage() {
       router.push(`/dashboard/projects/${project.id}/generate`);
     } catch (err) {
       console.error('Error creating project:', err);
-      setError('Failed to create project. Please try again.');
+      setSubmissionError('An unexpected error occurred. Please try again.');
     }
   };
 
@@ -93,12 +123,12 @@ export default function VariablesPage() {
     );
   }
 
-  if (error || !template) {
+  if (templateError || !template) {
     return (
       <div className="container mx-auto p-8 max-w-3xl">
         <Card className="p-6 bg-red-50 border-red-200">
           <h3 className="font-semibold text-red-900 mb-2">Error</h3>
-          <p className="text-red-700 mb-4">{error || 'Template not found'}</p>
+          <p className="text-red-700 mb-4">{templateError || 'Template not found'}</p>
           <Button
             variant="outline"
             onClick={() => router.push('/dashboard/projects/new/template')}
@@ -134,6 +164,8 @@ export default function VariablesPage() {
       <VariablesForm
         template={template}
         onSubmit={handleGenerate}
+        error={submissionError}
+        fieldErrors={fieldErrors}
       />
     </div>
   );

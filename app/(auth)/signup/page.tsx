@@ -10,7 +10,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import axios from 'axios';
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
@@ -40,6 +39,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { zodResolverV4 } from '@/lib/validations/zod-resolver';
 
 // Password validation rules (matching backend)
 const passwordSchema = z
@@ -86,7 +86,7 @@ export default function SignupPage() {
 
   // Initialize form with React Hook Form + Zod
   const form = useForm<SignupFormData>({
-    resolver: zodResolver(signupSchema),
+    resolver: zodResolverV4(signupSchema),
     defaultValues: {
       firstName: '',
       lastName: '',

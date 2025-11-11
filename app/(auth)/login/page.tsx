@@ -10,7 +10,6 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import axios from 'axios';
 import { AlertCircle, Loader2 } from 'lucide-react';
@@ -34,6 +33,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/lib/hooks/use-auth';
+import { zodResolverV4 } from '@/lib/validations/zod-resolver';
 
 // Login form validation schema
 const loginSchema = z.object({
@@ -55,7 +55,7 @@ export default function LoginPage() {
 
   // Initialize form with React Hook Form + Zod
   const form = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
+    resolver: zodResolverV4(loginSchema),
     defaultValues: {
       email: '',
       password: '',
