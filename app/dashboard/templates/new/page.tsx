@@ -16,11 +16,11 @@ import { AlertCircle } from 'lucide-react';
 
 export default function NewTemplatePage() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    if (!loading) {
+    if (user !== null) {
       if (!user) {
         router.push('/login');
       } else if (user.role !== 'admin' && user.role !== 'attorney') {
@@ -29,9 +29,9 @@ export default function NewTemplatePage() {
         setAuthorized(true);
       }
     }
-  }, [user, loading, router]);
+  }, [user, router]);
 
-  if (loading) {
+  if (user === null) {
     return (
       <div className="container mx-auto py-8">
         <div className="flex items-center justify-center py-12">

@@ -21,13 +21,18 @@ interface Template {
 
 interface TemplateGalleryProps {
   templates: Template[];
+  projectId?: string;
 }
 
-export function TemplateGallery({ templates }: TemplateGalleryProps) {
+export function TemplateGallery({ templates, projectId }: TemplateGalleryProps) {
   const router = useRouter();
 
   const handleSelectTemplate = (templateId: string) => {
-    router.push(`/dashboard/projects/new/variables?templateId=${templateId}`);
+    const params = new URLSearchParams({ templateId });
+    if (projectId) {
+      params.append('projectId', projectId);
+    }
+    router.push(`/dashboard/projects/new/variables?${params.toString()}`);
   };
 
   if (templates.length === 0) {

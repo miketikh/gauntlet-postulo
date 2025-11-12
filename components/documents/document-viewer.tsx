@@ -1,20 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Document, Page, pdfjs } from 'react-pdf';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
-  ChevronLeft,
-  ChevronRight,
-  ZoomIn,
-  ZoomOut,
-  Maximize,
   Download,
   Loader2,
 } from 'lucide-react';
-import 'react-pdf/dist/Page/AnnotationLayer.css';
-import 'react-pdf/dist/Page/TextLayer.css';
 import { useAuthStore } from '@/lib/stores/auth.store';
 
 interface DocumentViewerProps {
@@ -26,10 +18,13 @@ interface DocumentViewerProps {
 export function DocumentViewer({ documentId, fileName, fileType }: DocumentViewerProps) {
   const [presignedUrl, setPresignedUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [numPages, setNumPages] = useState<number>(0);
-  const [pageNumber, setPageNumber] = useState(1);
-  const [scale, setScale] = useState(1.0);
   const [error, setError] = useState<string | null>(null);
+
+  const iframeSrc = useMemo(() => {
+    if (!presignedUrl) return null;
+    // Hint to browsers to hide the built-in toolbar for a cleaner embedding when supported
+    return `${presignedUrl}#toolbar=0&navpanes=0&scrollbar=0`;
+  }, [presignedUrl]);
 
   useEffect(() => {
     // Fetch document with presigned URL
@@ -49,22 +44,6 @@ export function DocumentViewer({ documentId, fileName, fileType }: DocumentViewe
         setLoading(false);
       });
   }, [documentId]);
-
-  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-    setNumPages(numPages);
-  };
-
-  const goToPrevPage = () => setPageNumber(page => Math.max(1, page - 1));
-  const goToNextPage = () => setPageNumber(page => Math.min(numPages, page + 1));
-  const zoomIn = () => setScale(s => Math.min(2.5, s + 0.25));
-  const zoomOut = () => setScale(s => Math.max(0.5, s - 0.25));
-  const toggleFullScreen = () => {
-    if (document.fullscreenElement) {
-      document.exitFullscreen();
-    } else {
-      document.getElementById('document-viewer')?.requestFullscreen();
-    }
-  };
 
   if (loading) {
     return (
@@ -86,47 +65,11 @@ export function DocumentViewer({ documentId, fileName, fileType }: DocumentViewe
   if (fileType === 'application/pdf' && presignedUrl) {
     return (
       <div id="document-viewer" className="flex flex-col h-full">
-        {/* Toolbar */}
         <div className="flex items-center justify-between p-4 border-b bg-white">
+          <span className="text-sm font-medium truncate" title={fileName}>
+            {fileName}
+          </span>
           <div className="flex items-center gap-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={goToPrevPage}
-              disabled={pageNumber <= 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-
-            <span className="text-sm">
-              Page {pageNumber} of {numPages}
-            </span>
-
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={goToNextPage}
-              disabled={pageNumber >= numPages}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={zoomOut}>
-              <ZoomOut className="h-4 w-4" />
-            </Button>
-
-            <span className="text-sm">{Math.round(scale * 100)}%</span>
-
-            <Button size="sm" variant="outline" onClick={zoomIn}>
-              <ZoomIn className="h-4 w-4" />
-            </Button>
-
-            <Button size="sm" variant="outline" onClick={toggleFullScreen}>
-              <Maximize className="h-4 w-4" />
-            </Button>
-
             <Button size="sm" variant="outline" asChild>
               <a href={presignedUrl} download={fileName}>
                 <Download className="h-4 w-4" />
@@ -135,22 +78,19 @@ export function DocumentViewer({ documentId, fileName, fileType }: DocumentViewe
           </div>
         </div>
 
-        {/* PDF Display */}
-        <div className="flex-1 overflow-auto bg-slate-100 p-4">
-          <div className="flex justify-center">
-            <Document
-              file={presignedUrl}
-              onLoadSuccess={onDocumentLoadSuccess}
-              loading={<Loader2 className="animate-spin" />}
-            >
-              <Page
-                pageNumber={pageNumber}
-                scale={scale}
-                renderTextLayer
-                renderAnnotationLayer
-              />
-            </Document>
-          </div>
+        <div className="flex-1 overflow-hidden bg-slate-100">
+          {iframeSrc ? (
+            <iframe
+              src={iframeSrc}
+              title={fileName}
+              className="h-full w-full bg-white"
+              allow="fullscreen"
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+              Unable to display document preview.
+            </div>
+          )}
         </div>
       </div>
     );

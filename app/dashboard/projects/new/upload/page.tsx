@@ -20,6 +20,7 @@ import {
 import { DocumentUploadZone } from '@/components/documents/document-upload-zone';
 import { FileQueueList } from '@/components/documents/file-queue-list';
 import { useDocumentUpload } from '@/lib/hooks/use-document-upload';
+import { useAuthStore } from '@/lib/stores/auth.store';
 
 export default function UploadPage() {
   const router = useRouter();
@@ -31,17 +32,73 @@ export default function UploadPage() {
     isUploading,
   } = useDocumentUpload();
 
-  const [showApiWarning, setShowApiWarning] = useState(false);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isCreatingProject, setIsCreatingProject] = useState(false);
 
-  const handleFilesSelected = (files: File[]) => {
+  const handleFilesSelected = async (files: File[]) => {
     addFiles(files);
+
+    // Create draft project if not already created
+    if (!projectId && files.length > 0) {
+      await createDraftProject();
+    }
+  };
+
+  const createDraftProject = async () => {
+    try {
+      setIsCreatingProject(true);
+      setError(null);
+
+      const accessToken = useAuthStore.getState().accessToken;
+
+      const response = await fetch('/api/projects', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          templateId: null, // Will be set when user selects template
+          variables: {},
+          title: 'Draft Demand Letter',
+          clientName: 'TBD',
+          status: 'draft',
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create draft project');
+      }
+
+      const { project } = await response.json();
+      setProjectId(project.id);
+    } catch (err) {
+      console.error('Error creating draft project:', err);
+      setError('Failed to create project. Please try again.');
+    } finally {
+      setIsCreatingProject(false);
+    }
   };
 
   const handleContinue = async () => {
-    // Navigate to template selection
-    // Note: File upload functionality will be implemented in Story 2.2
-    // For now, we proceed directly to template selection
-    router.push('/dashboard/projects/new/template');
+    if (!projectId) {
+      setError('No project created. Please try adding files again.');
+      return;
+    }
+
+    try {
+      setError(null);
+
+      // Upload all files
+      await uploadAll(projectId);
+
+      // Navigate to template selection with projectId
+      router.push(`/dashboard/projects/new/template?projectId=${projectId}`);
+    } catch (err) {
+      console.error('Error uploading files:', err);
+      setError('Failed to upload files. Please try again.');
+    }
   };
 
   const handleBack = () => {
@@ -69,19 +126,15 @@ export default function UploadPage() {
         </p>
       </div>
 
-      {/* API Warning (Story 2.2 will remove this) */}
-      {showApiWarning && (
-        <Card className="mb-6 border-orange-200 bg-orange-50">
+      {/* Error Display */}
+      {error && (
+        <Card className="mb-6 border-red-200 bg-red-50">
           <CardContent className="pt-6">
             <div className="flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5" />
+              <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-orange-900">
-                  API Not Yet Implemented
-                </p>
-                <p className="text-sm text-orange-700 mt-1">
-                  The upload API endpoint will be implemented in Story 2.2. For now, uploads are simulated with mock data.
-                </p>
+                <p className="text-sm font-medium text-red-900">Error</p>
+                <p className="text-sm text-red-700 mt-1">{error}</p>
               </div>
             </div>
           </CardContent>
@@ -133,9 +186,13 @@ export default function UploadPage() {
           </Button>
           <Button
             onClick={handleContinue}
-            disabled={queuedFiles.length === 0 || isUploading}
+            disabled={queuedFiles.length === 0 || isUploading || isCreatingProject || !projectId}
           >
-            {isUploading ? 'Uploading...' : 'Continue to Template Selection'}
+            {isCreatingProject
+              ? 'Creating Project...'
+              : isUploading
+              ? 'Uploading...'
+              : 'Continue to Template Selection'}
           </Button>
         </div>
       </div>

@@ -12,7 +12,14 @@ import { ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 
-export default async function TemplateSelectionPage() {
+export default async function TemplateSelectionPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ projectId?: string }>;
+}) {
+  const params = await searchParams;
+  const projectId = params.projectId;
+
   // TODO: Get user's firm from session
   // For now, we'll fetch all templates
   // In a real implementation, this would filter by firmId from the authenticated user
@@ -40,7 +47,7 @@ export default async function TemplateSelectionPage() {
       </div>
 
       {/* Template Gallery */}
-      <TemplateGallery templates={firmTemplates} />
+      <TemplateGallery templates={firmTemplates as any} projectId={projectId} />
     </div>
   );
 }

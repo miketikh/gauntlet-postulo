@@ -23,6 +23,7 @@ export default function VariablesPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const templateId = searchParams.get('templateId');
+  const projectId = searchParams.get('projectId');
   const [template, setTemplate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [templateError, setTemplateError] = useState<string | null>(null);
@@ -32,6 +33,12 @@ export default function VariablesPage() {
   useEffect(() => {
     if (!templateId) {
       setTemplateError('No template selected');
+      setLoading(false);
+      return;
+    }
+
+    if (!projectId) {
+      setTemplateError('No project found. Please start from the upload page.');
       setLoading(false);
       return;
     }
@@ -56,7 +63,7 @@ export default function VariablesPage() {
         setTemplateError('Failed to load template. Please try again.');
         setLoading(false);
       });
-  }, [templateId]);
+  }, [templateId, projectId]);
 
   const handleGenerate = async (variables: Record<string, any>) => {
     // Clear previous errors
@@ -64,10 +71,10 @@ export default function VariablesPage() {
     setFieldErrors([]);
 
     try {
-      // Create project with template and variables
+      // Update project with template and variables
       const accessToken = useAuthStore.getState().accessToken;
-      const response = await fetch('/api/projects', {
-        method: 'POST',
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${accessToken}`,
@@ -77,6 +84,7 @@ export default function VariablesPage() {
           variables,
           title: `${variables.plaintiffName || 'Untitled'} Demand Letter`,
           clientName: variables.plaintiffName || 'Unknown',
+          status: 'in_review', // Move from draft to in_review
         }),
       });
 
@@ -97,7 +105,7 @@ export default function VariablesPage() {
           // Generic error
           setSubmissionError(
             errorData.error?.message ||
-            'Failed to create project. Please try again.'
+            'Failed to update project. Please try again.'
           );
         }
         return;
@@ -108,7 +116,7 @@ export default function VariablesPage() {
       // Navigate to streaming generation view
       router.push(`/dashboard/projects/${project.id}/generate`);
     } catch (err) {
-      console.error('Error creating project:', err);
+      console.error('Error updating project:', err);
       setSubmissionError('An unexpected error occurred. Please try again.');
     }
   };

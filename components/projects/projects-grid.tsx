@@ -19,7 +19,7 @@ interface Project {
   };
   template: {
     name: string;
-  };
+  } | null;
 }
 
 export function ProjectsGrid({
@@ -82,7 +82,7 @@ export function ProjectsGrid({
 
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 flex-shrink-0" />
-                <span className="truncate">{project.template.name}</span>
+                <span className="truncate">{project.template?.name || 'No template'}</span>
               </div>
 
               <div className="flex items-center gap-2">

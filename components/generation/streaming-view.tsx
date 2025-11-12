@@ -15,6 +15,7 @@ interface StreamingViewProps {
   currentSection: string;
   isGenerating: boolean;
   error: string | null;
+  extractionStatus?: string;
   onStop: () => void;
   onRetry: () => void;
 }
@@ -24,6 +25,7 @@ export function StreamingView({
   currentSection,
   isGenerating,
   error,
+  extractionStatus = 'completed',
   onStop,
   onRetry,
 }: StreamingViewProps) {
@@ -92,8 +94,17 @@ export function StreamingView({
           {isGenerating && !content && (
             <div className="flex flex-col items-center justify-center py-12 text-slate-500">
               <Loader2 className="h-8 w-8 animate-spin mb-4" />
-              <p className="text-sm font-medium">Initializing AI generation...</p>
-              <p className="text-xs text-slate-400 mt-1">This may take a moment</p>
+              {extractionStatus !== 'completed' ? (
+                <>
+                  <p className="text-sm font-medium">Extracting text from documents...</p>
+                  <p className="text-xs text-slate-400 mt-1 capitalize">{extractionStatus}</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium">Initializing AI generation...</p>
+                  <p className="text-xs text-slate-400 mt-1">This may take a moment</p>
+                </>
+              )}
             </div>
           )}
 

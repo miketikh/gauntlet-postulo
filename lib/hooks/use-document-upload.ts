@@ -8,6 +8,7 @@
 
 import { useState } from 'react';
 import { validateFile } from '@/lib/utils/file-validation';
+import { useAuthStore } from '@/lib/stores/auth.store';
 
 export type UploadState = 'idle' | 'uploading' | 'success' | 'error';
 
@@ -51,9 +52,8 @@ export function useDocumentUpload() {
 
   /**
    * Upload a single file
-   * NOTE: API endpoint will be implemented in Story 2.2
    */
-  const uploadFile = async (fileId: string, _projectId: string) => {
+  const uploadFile = async (fileId: string, projectId: string) => {
     const file = queuedFiles.find((f) => f.id === fileId);
     if (!file) return;
 
@@ -65,49 +65,55 @@ export function useDocumentUpload() {
     );
 
     try {
-      // Mock upload for now - Story 2.2 will implement the actual API
-      // Simulate upload progress
-      for (let i = 0; i <= 100; i += 10) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-        setQueuedFiles((prev) =>
-          prev.map((f) => (f.id === fileId ? { ...f, progress: i } : f))
-        );
-      }
+      // Get auth token
+      const accessToken = useAuthStore.getState().accessToken;
 
-      // Mock success
-      setQueuedFiles((prev) =>
-        prev.map((f) =>
-          f.id === fileId
-            ? {
-                ...f,
-                status: 'success',
-                progress: 100,
-                uploadedDocumentId: crypto.randomUUID(),
-              }
-            : f
-        )
-      );
-
-      // TODO: Replace with actual API call in Story 2.2
-      /*
+      // Prepare form data
       const formData = new FormData();
       formData.append('file', file.file);
       formData.append('projectId', projectId);
 
-      const response = await fetch('/api/documents/upload', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        body: formData,
+      // Upload file with progress tracking
+      const xhr = new XMLHttpRequest();
+
+      // Track upload progress
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) {
+          const progress = Math.round((e.loaded / e.total) * 100);
+          setQueuedFiles((prev) =>
+            prev.map((f) => (f.id === fileId ? { ...f, progress } : f))
+          );
+        }
       });
 
-      if (!response.ok) {
-        throw new Error('Upload failed');
-      }
+      // Handle completion
+      const uploadPromise = new Promise<any>((resolve, reject) => {
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve(JSON.parse(xhr.responseText));
+          } else {
+            reject(new Error(`Upload failed with status ${xhr.status}`));
+          }
+        });
 
-      const data = await response.json();
+        xhr.addEventListener('error', () => {
+          reject(new Error('Upload failed'));
+        });
 
+        xhr.addEventListener('abort', () => {
+          reject(new Error('Upload cancelled'));
+        });
+      });
+
+      // Start upload
+      xhr.open('POST', '/api/documents/upload');
+      xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+      xhr.send(formData);
+
+      // Wait for completion
+      const data = await uploadPromise;
+
+      // Update status to success
       setQueuedFiles((prev) =>
         prev.map((f) =>
           f.id === fileId
@@ -115,12 +121,11 @@ export function useDocumentUpload() {
                 ...f,
                 status: 'success',
                 progress: 100,
-                uploadedDocumentId: data.documentId,
+                uploadedDocumentId: data.document.id,
               }
             : f
         )
       );
-      */
     } catch (error) {
       setQueuedFiles((prev) =>
         prev.map((f) =>

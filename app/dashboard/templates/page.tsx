@@ -8,12 +8,25 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { TemplatesGrid } from '@/components/templates/templates-grid';
-import { TemplateSearch } from '@/components/templates/template-search';
+import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { apiClient } from '@/lib/api/client';
 import { useAuth } from '@/lib/hooks/use-auth';
+
+// Code splitting: lazy load template components
+const TemplatesGrid = dynamic(
+  () => import('@/components/templates/templates-grid').then(mod => ({ default: mod.TemplatesGrid })),
+  {
+    loading: () => <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"><div className="animate-pulse bg-gray-200 h-48 rounded-lg"></div></div>,
+    ssr: false
+  }
+);
+
+const TemplateSearch = dynamic(
+  () => import('@/components/templates/template-search').then(mod => ({ default: mod.TemplateSearch })),
+  { ssr: false }
+);
 
 export default function TemplatesPage() {
   const router = useRouter();

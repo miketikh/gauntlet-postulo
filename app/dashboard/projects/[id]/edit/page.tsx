@@ -8,18 +8,53 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect, useCallback } from 'react';
-import { CollaborativeEditor } from '@/components/editor/collaborative-editor';
-import { EditorLayout } from '@/components/editor/editor-layout';
-import { EditorTopBar } from '@/components/editor/editor-top-bar';
-import { SourceDocumentsPanel } from '@/components/editor/source-documents-panel';
-import { EditorSidebar } from '@/components/editor/editor-sidebar';
-import { CommandsPalette, CommandAction } from '@/components/editor/commands-palette';
+import dynamic from 'next/dynamic';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { useLayoutPreferences } from '@/lib/hooks/use-layout-preferences';
 import { useKeyboardShortcuts } from '@/lib/hooks/use-keyboard-shortcuts';
 import { Button } from '@/components/ui/button';
 import { FileText, Save, Download, Share2, PanelLeftClose, PanelRightClose, MessageSquare, Users, History } from 'lucide-react';
 import Link from 'next/link';
+import { CommandAction } from '@/components/editor/commands-palette';
+
+// Code splitting: lazy load heavy editor components
+const CollaborativeEditor = dynamic(
+  () => import('@/components/editor/collaborative-editor').then(mod => ({ default: mod.CollaborativeEditor })),
+  {
+    loading: () => <div className="flex items-center justify-center h-full"><p className="text-muted-foreground">Loading editor...</p></div>,
+    ssr: false
+  }
+);
+
+const EditorLayout = dynamic(
+  () => import('@/components/editor/editor-layout').then(mod => ({ default: mod.EditorLayout })),
+  { ssr: false }
+);
+
+const EditorTopBar = dynamic(
+  () => import('@/components/editor/editor-top-bar').then(mod => ({ default: mod.EditorTopBar })),
+  { ssr: false }
+);
+
+const SourceDocumentsPanel = dynamic(
+  () => import('@/components/editor/source-documents-panel').then(mod => ({ default: mod.SourceDocumentsPanel })),
+  { ssr: false }
+);
+
+const EditorSidebar = dynamic(
+  () => import('@/components/editor/editor-sidebar').then(mod => ({ default: mod.EditorSidebar })),
+  { ssr: false }
+);
+
+const CommandsPalette = dynamic(
+  () => import('@/components/editor/commands-palette'),
+  { ssr: false }
+);
+
+const NoDraftView = dynamic(
+  () => import('@/components/editor/no-draft-view').then(mod => ({ default: mod.NoDraftView })),
+  { ssr: false }
+);
 
 type SaveStatus = 'saved' | 'saving' | 'unsaved' | 'error';
 
@@ -76,17 +111,22 @@ export default function CollaborativeEditorPage() {
         const projectData = await projectResponse.json();
         setProject(projectData.project);
 
-        // Fetch draft
-        const draftResponse = await fetch(`/api/drafts/${projectId}`, {
+        // Fetch draft by project ID
+        let fetchedDraft = null;
+        const draftResponse = await fetch(`/api/projects/${projectId}/draft`, {
           headers: { Authorization: `Bearer ${accessToken}` },
         });
 
         if (draftResponse.ok) {
           const draftData = await draftResponse.json();
-          setDraft(draftData.draft);
+          fetchedDraft = draftData.draft;
+          console.log('[Edit Page] Draft received, plainText length:', fetchedDraft?.plainText?.length || 0);
+          console.log('[Edit Page] Draft plainText preview:', fetchedDraft?.plainText?.substring(0, 100));
+          setDraft(fetchedDraft);
         } else if (draftResponse.status === 404) {
-          // No draft yet, will be created on first save
-          setDraft({ id: projectId, projectId });
+          // Valid state: project exists but no draft generated yet
+          console.log('No draft found for project - user can generate one');
+          setDraft(null);
         } else {
           throw new Error('Failed to load draft');
         }
@@ -101,18 +141,20 @@ export default function CollaborativeEditorPage() {
           setDocuments(documentsData.documents || []);
         }
 
-        // Fetch comment threads (if API exists)
-        try {
-          const commentsResponse = await fetch(`/api/drafts/${projectId}/comments`, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-          });
+        // Fetch comment threads using the draft ID (only if draft exists)
+        if (fetchedDraft?.id) {
+          try {
+            const commentsResponse = await fetch(`/api/drafts/${fetchedDraft.id}/comments`, {
+              headers: { Authorization: `Bearer ${accessToken}` },
+            });
 
-          if (commentsResponse.ok) {
-            const commentsData = await commentsResponse.json();
-            setCommentThreads(commentsData.threads || []);
+            if (commentsResponse.ok) {
+              const commentsData = await commentsResponse.json();
+              setCommentThreads(commentsData.threads || []);
+            }
+          } catch (err) {
+            console.warn('Comments API not available:', err);
           }
-        } catch (err) {
-          console.warn('Comments API not available:', err);
         }
 
         setLoading(false);
@@ -128,17 +170,26 @@ export default function CollaborativeEditorPage() {
 
   // Handle export to Word
   const handleExport = useCallback(async () => {
-    if (!accessToken || !projectId) return;
+    if (!accessToken || !draft?.id) return;
 
     setIsExporting(true);
     try {
-      const response = await fetch(`/api/drafts/${projectId}/export`, {
+      const response = await fetch(`/api/drafts/${draft.id}/export`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${accessToken}` },
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          format: 'docx',
+          returnType: 'download',
+          includeMetadata: true,
+        }),
       });
 
       if (!response.ok) {
-        throw new Error('Export failed');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || 'Export failed');
       }
 
       const blob = await response.blob();
@@ -152,10 +203,11 @@ export default function CollaborativeEditorPage() {
       document.body.removeChild(a);
     } catch (err) {
       console.error('Export error:', err);
+      alert(err instanceof Error ? err.message : 'Failed to export document');
     } finally {
       setIsExporting(false);
     }
-  }, [accessToken, projectId, project]);
+  }, [accessToken, draft, project]);
 
   // Handle share
   const handleShare = useCallback(() => {
@@ -257,8 +309,8 @@ export default function CollaborativeEditorPage() {
     );
   }
 
-  // Error state
-  if (error || !project || !draft) {
+  // Error state (but NOT for missing draft - that's handled below)
+  if (error || !project) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
@@ -269,6 +321,11 @@ export default function CollaborativeEditorPage() {
         </div>
       </div>
     );
+  }
+
+  // Show NoDraftView if no draft exists
+  if (!draft) {
+    return <NoDraftView projectId={projectId} projectTitle={project?.title} />;
   }
 
   return (
@@ -282,12 +339,11 @@ export default function CollaborativeEditorPage() {
               clientName: project.clientName,
               status: project.status,
             }}
+            draftId={draft.id}
             saveStatus={saveStatus}
             onSave={() => setSaveStatus('saving')}
             onExport={handleExport}
-            onShare={handleShare}
             onOpenCommands={() => setIsCommandsOpen(true)}
-            isExporting={isExporting}
             backUrl={`/dashboard/projects/${projectId}`}
           />
         }
@@ -301,6 +357,7 @@ export default function CollaborativeEditorPage() {
           <div className="h-full p-4">
             <CollaborativeEditor
               draftId={draft.id}
+              initialPlainText={draft.plainText}
               editable={true}
               placeholder="Start typing your demand letter..."
               autoSaveInterval={30000}

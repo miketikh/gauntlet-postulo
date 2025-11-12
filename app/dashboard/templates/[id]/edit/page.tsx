@@ -19,7 +19,7 @@ export default function EditTemplatePage() {
   const params = useParams();
   const router = useRouter();
   const templateId = params.id as string;
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const [template, setTemplate] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,7 +40,7 @@ export default function EditTemplatePage() {
   };
 
   useEffect(() => {
-    if (!authLoading) {
+    if (user !== null) {
       if (!user) {
         router.push('/login');
       } else if (user.role !== 'admin' && user.role !== 'attorney') {
@@ -51,9 +51,9 @@ export default function EditTemplatePage() {
         void fetchTemplate();
       }
     }
-  }, [user, authLoading, router]);
+  }, [user, router]);
 
-  if (loading || authLoading) {
+  if (loading) {
     return (
       <div className="container mx-auto py-8">
         <div className="flex items-center justify-center py-12">
@@ -97,7 +97,7 @@ export default function EditTemplatePage() {
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Edit Template</h1>
         <p className="text-slate-600 mt-1">
-          Update sections, variables, and structure for {template.name}
+          Update sections, variables, and structure for {String(template.name)}
         </p>
       </div>
 

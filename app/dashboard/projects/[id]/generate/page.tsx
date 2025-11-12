@@ -22,7 +22,69 @@ export default function GeneratePage() {
   const [isGenerating, setIsGenerating] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [project, setProject] = useState<any>(null);
+  const [extractionStatus, setExtractionStatus] = useState<string>('checking');
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  const checkExtractionStatus = useCallback(async (projectData: any): Promise<boolean> => {
+    if (!projectData.sourceDocuments || projectData.sourceDocuments.length === 0) {
+      return true; // No documents to extract
+    }
+
+    const statuses = projectData.sourceDocuments.map((doc: any) => doc.extractionStatus);
+    const allCompleted = statuses.every((status: string) => status === 'completed');
+    const anyFailed = statuses.some((status: string) => status === 'failed');
+
+    if (anyFailed) {
+      setExtractionStatus('failed');
+      return false;
+    }
+
+    if (allCompleted) {
+      setExtractionStatus('completed');
+      return true;
+    }
+
+    const pending = statuses.filter((status: string) => status === 'pending' || status === 'processing').length;
+    setExtractionStatus(`extracting (${statuses.length - pending}/${statuses.length})`);
+    return false;
+  }, []);
+
+  const waitForExtraction = useCallback(async (projectData: any): Promise<any> => {
+    const maxAttempts = 60; // 60 attempts * 2 seconds = 2 minutes max wait
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+      const ready = await checkExtractionStatus(projectData);
+
+      if (ready) {
+        return projectData;
+      }
+
+      if (extractionStatus === 'failed') {
+        throw new Error('Document extraction failed. Please try uploading your documents again.');
+      }
+
+      // Wait 2 seconds before checking again
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // Re-fetch project to get updated extraction status
+      const response = await fetch(`/api/projects/${projectId}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to check extraction status');
+      }
+
+      const data = await response.json();
+      projectData = data.project;
+      attempts++;
+    }
+
+    throw new Error('Document extraction timed out. Please try again.');
+  }, [accessToken, projectId, checkExtractionStatus, extractionStatus]);
 
   const startGeneration = useCallback(async (projectData: any) => {
     if (!accessToken) {
@@ -30,6 +92,11 @@ export default function GeneratePage() {
     }
 
     try {
+      // Wait for extraction to complete
+      setExtractionStatus('checking');
+      projectData = await waitForExtraction(projectData);
+      setExtractionStatus('completed');
+
       abortControllerRef.current = new AbortController();
       const response = await fetch('/api/ai/generate', {
         method: 'POST',
@@ -93,7 +160,7 @@ export default function GeneratePage() {
         setIsGenerating(false);
       }
     }
-  }, [accessToken, projectId, router]);
+  }, [accessToken, projectId, router, waitForExtraction]);
 
   useEffect(() => {
     if (!projectId) {
@@ -182,6 +249,7 @@ export default function GeneratePage() {
       currentSection={currentSection}
       isGenerating={isGenerating}
       error={error}
+      extractionStatus={extractionStatus}
       onStop={handleStop}
       onRetry={handleRetry}
     />
