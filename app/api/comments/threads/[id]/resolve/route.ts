@@ -16,11 +16,11 @@ import { logger } from '@/lib/utils/logger';
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await requireAuth(request);
-    const threadId = params.id;
+    const { id: threadId } = await params;
 
     // Resolve thread
     await commentService.resolveThread(threadId, user.userId);
@@ -42,7 +42,7 @@ export async function POST(
     logger.error('Failed to resolve comment thread', {
       action: 'comments.thread.resolve',
       error: error instanceof Error ? error.message : String(error),
-      threadId: params.id,
+      threadId: await params.then(p => p.id),
     });
 
     if (error instanceof Error && error.message === 'Missing authentication token') {
@@ -77,11 +77,11 @@ export async function POST(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await requireAuth(request);
-    const threadId = params.id;
+    const { id: threadId } = await params;
 
     // Unresolve thread
     await commentService.unresolveThread(threadId, user.userId);
@@ -103,7 +103,7 @@ export async function DELETE(
     logger.error('Failed to unresolve comment thread', {
       action: 'comments.thread.unresolve',
       error: error instanceof Error ? error.message : String(error),
-      threadId: params.id,
+      threadId: await params.then(p => p.id),
     });
 
     if (error instanceof Error && error.message === 'Missing authentication token') {

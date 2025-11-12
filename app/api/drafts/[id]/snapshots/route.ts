@@ -25,10 +25,10 @@ const createSnapshotSchema = z.object({
  */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const draftId = params.id;
+    const { id: draftId } = await params;
 
     // Require 'edit' permission to create snapshots
     const ctx = await requireDraftPermission(req, draftId, 'edit');
@@ -61,7 +61,7 @@ export async function POST(
           error: {
             code: 'VALIDATION_ERROR',
             message: 'Invalid request data',
-            details: error.errors,
+            details: error.issues,
             timestamp: new Date().toISOString(),
           },
         },

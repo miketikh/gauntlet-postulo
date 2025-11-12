@@ -30,9 +30,7 @@ const emailSchema = z
 /**
  * User role validation
  */
-const roleSchema = z.enum(['admin', 'attorney', 'paralegal'], {
-  errorMap: () => ({ message: 'Role must be one of: admin, attorney, paralegal' }),
-});
+const roleSchema = z.enum(['admin', 'attorney', 'paralegal']);
 
 /**
  * Registration request validation

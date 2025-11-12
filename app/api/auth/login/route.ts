@@ -16,6 +16,7 @@ import {
 import { loginSchema } from '@/lib/validations/auth';
 import { createErrorResponse, UnauthorizedError } from '@/lib/errors';
 import { eq } from 'drizzle-orm';
+import { auditAuthLogin, auditAuthLoginFailed } from '@/lib/middleware/audit.middleware';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,6 +30,8 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
+      // Story 6.8: Audit failed login attempt
+      await auditAuthLoginFailed(request, validatedData.email, 'User not found');
       // Don't reveal whether email exists or not (security best practice)
       throw new UnauthorizedError('Invalid email or password');
     }
@@ -40,6 +43,8 @@ export async function POST(request: NextRequest) {
     );
 
     if (!isPasswordValid) {
+      // Story 6.8: Audit failed login attempt
+      await auditAuthLoginFailed(request, validatedData.email, 'Invalid password');
       throw new UnauthorizedError('Invalid email or password');
     }
 
@@ -54,6 +59,9 @@ export async function POST(request: NextRequest) {
     // Generate tokens
     const accessToken = generateAccessToken(tokenPayload);
     const refreshToken = generateRefreshToken(tokenPayload);
+
+    // Story 6.8: Audit successful login
+    await auditAuthLogin(request, user.id, user.firmId, user.email);
 
     // Remove password hash from user response
     const { passwordHash: _, ...userResponse } = user;

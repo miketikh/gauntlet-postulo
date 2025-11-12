@@ -9,6 +9,8 @@ import { db } from '@/lib/db/client';
 import { drafts, projects } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { requireAuth } from '@/lib/middleware/auth';
+import { auditLog } from '@/lib/middleware/audit.middleware';
+import { AUDIT_ACTIONS, RESOURCE_TYPES } from '@/lib/services/audit.service';
 
 /**
  * GET /api/drafts/[id]
@@ -55,6 +57,13 @@ export async function GET(
         { status: 404 }
       );
     }
+
+    // Story 6.8: Audit draft view
+    await auditLog(request, auth, {
+      action: AUDIT_ACTIONS.DRAFT_VIEW,
+      resourceType: RESOURCE_TYPES.DRAFT,
+      resourceId: draft.id,
+    });
 
     return NextResponse.json({ draft });
   } catch (error) {
@@ -129,6 +138,13 @@ export async function PUT(
         .returning();
 
       draft = updatedDraft;
+
+      // Story 6.8: Audit draft update
+      await auditLog(request, auth, {
+        action: AUDIT_ACTIONS.DRAFT_UPDATE,
+        resourceType: RESOURCE_TYPES.DRAFT,
+        resourceId: draft.id,
+      });
     } else {
       // Create new draft
       const [newDraft] = await db
@@ -140,6 +156,13 @@ export async function PUT(
         .returning();
 
       draft = newDraft;
+
+      // Story 6.8: Audit draft creation
+      await auditLog(request, auth, {
+        action: AUDIT_ACTIONS.DRAFT_CREATE,
+        resourceType: RESOURCE_TYPES.DRAFT,
+        resourceId: draft.id,
+      });
     }
 
     return NextResponse.json({ draft });

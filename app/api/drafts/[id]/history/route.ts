@@ -20,10 +20,10 @@ import { createErrorResponse } from '@/lib/errors';
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const draftId = params.id;
+    const { id: draftId } = await params;
 
     // Require 'view' permission to see history
     await requireDraftPermission(req, draftId, 'view');

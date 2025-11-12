@@ -50,7 +50,8 @@ export interface Collaborator {
 export async function checkDraftPermission(
   draftId: string,
   userId: string,
-  firmId: string
+  firmId: string,
+  userRole?: 'admin' | 'attorney' | 'paralegal'
 ): Promise<PermissionLevel | null> {
   // Get draft with project information to verify firm isolation
   const draft = await db.query.drafts.findFirst({
@@ -86,7 +87,16 @@ export async function checkDraftPermission(
     ),
   });
 
-  return collaborator ? collaborator.permission : null;
+  if (collaborator) {
+    return collaborator.permission;
+  }
+
+  // Firm admins have implicit owner-level access to all drafts in their firm
+  if (userRole === 'admin') {
+    return 'owner';
+  }
+
+  return null;
 }
 
 /**

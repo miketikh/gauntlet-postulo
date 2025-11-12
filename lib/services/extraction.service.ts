@@ -4,7 +4,7 @@
  * Based on architecture.md specifications
  */
 
-import pdfParse from 'pdf-parse';
+import { extractText, getDocumentProxy } from 'unpdf';
 import mammoth from 'mammoth';
 import { createWorker } from 'tesseract.js';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
@@ -79,17 +79,29 @@ export async function extractPdfText(s3Key: string): Promise<ExtractionResult> {
   try {
     const buffer = await downloadFromS3(s3Key);
 
-    // Extract text with timeout protection
-    const textPromise = pdfParse(buffer);
+    // Convert Buffer to Uint8Array for unpdf
+    const uint8Array = new Uint8Array(buffer);
+
+    // Extract text and page count with timeout protection
+    const extractionPromise = (async () => {
+      // First get the document proxy
+      const doc = await getDocumentProxy(uint8Array);
+
+      // Then extract text from the proxy with mergePages option
+      const { totalPages, text } = await extractText(doc, { mergePages: true });
+
+      return { text, pageCount: totalPages };
+    })();
+
     const timeoutPromise = new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error('Extraction timeout exceeded 2 minutes')), EXTRACTION_TIMEOUT)
     );
 
-    const data = await Promise.race([textPromise, timeoutPromise]);
+    const { text, pageCount } = await Promise.race([extractionPromise, timeoutPromise]);
 
     return {
-      text: normalizeText(data.text),
-      pageCount: data.numpages,
+      text: normalizeText(text),
+      pageCount,
       success: true,
     };
   } catch (error) {

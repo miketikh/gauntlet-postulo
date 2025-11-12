@@ -15,10 +15,11 @@ import { z } from 'zod';
  * Request body validation schema for creating a project
  */
 const createProjectSchema = z.object({
-  templateId: z.string().uuid('Invalid template ID'),
-  variables: z.record(z.string(), z.any()),
+  templateId: z.string().uuid('Invalid template ID').nullable().optional(),
+  variables: z.record(z.string(), z.any()).optional().default({}),
   title: z.string().min(1, 'Title is required'),
   clientName: z.string().min(1, 'Client name is required'),
+  status: z.enum(['draft', 'in_review', 'completed', 'sent']).optional().default('draft'),
 });
 
 /**
@@ -38,17 +39,17 @@ export async function POST(req: NextRequest) {
       throw new ValidationError('Invalid request body', validationResult.error.issues);
     }
 
-    const { templateId, variables, title, clientName } = validationResult.data;
+    const { templateId, variables, title, clientName, status } = validationResult.data;
 
     // Create project
     const [project] = await db.insert(projects).values({
       title,
       clientName,
-      templateId,
-      caseDetails: variables,
+      templateId: templateId ?? null,
+      caseDetails: variables ?? {},
       firmId: user.firmId,
       createdBy: user.userId,
-      status: 'draft',
+      status: status ?? 'draft',
     }).returning();
 
     return NextResponse.json({

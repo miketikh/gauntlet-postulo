@@ -22,10 +22,10 @@ import { z } from 'zod';
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const draftId = params.id;
+    const { id: draftId } = await params;
 
     // Require view permission to see collaborators
     const ctx = await requireDraftPermission(request, draftId, 'view');
@@ -62,10 +62,10 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const draftId = params.id;
+    const { id: draftId } = await params;
 
     // Require owner permission to add collaborators
     const ctx = await requireOwnerPermission(request, draftId);
@@ -103,7 +103,7 @@ export async function POST(
           error: {
             code: 'VALIDATION_ERROR',
             message: 'Invalid input',
-            details: error.errors,
+            details: error.issues,
             timestamp: new Date().toISOString(),
           }
         },

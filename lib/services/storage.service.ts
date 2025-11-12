@@ -182,3 +182,30 @@ export async function getPresignedUrl(s3Key: string, expiresIn: number = 3600): 
     expiresIn,
   });
 }
+
+/**
+ * Get file contents from S3 as Buffer
+ * Used for server-side processing (e.g., including logo in exports)
+ */
+export async function getFile(key: string): Promise<Buffer> {
+  const command = new GetObjectCommand({
+    Bucket: BUCKET_NAME,
+    Key: key,
+  });
+
+  const response = await s3Client.send(command);
+
+  // Convert stream to buffer
+  if (!response.Body) {
+    throw new Error('File body is empty');
+  }
+
+  const chunks: Uint8Array[] = [];
+  const stream = response.Body as any;
+
+  return new Promise((resolve, reject) => {
+    stream.on('data', (chunk: Uint8Array) => chunks.push(chunk));
+    stream.on('error', reject);
+    stream.on('end', () => resolve(Buffer.concat(chunks)));
+  });
+}

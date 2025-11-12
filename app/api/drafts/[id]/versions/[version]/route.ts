@@ -17,12 +17,12 @@ import { createErrorResponse, NotFoundError, ValidationError } from '@/lib/error
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string; version: string } }
+  { params }: { params: Promise<{ id: string; version: string }> }
 ) {
   try {
     const user = await requireAuth(req);
-    const draftId = params.id;
-    const version = parseInt(params.version, 10);
+    const { id: draftId } = await params;
+    const version = parseInt(await params.then(p => p.version), 10);
 
     // Validate version is a valid number
     if (isNaN(version) || version < 1) {

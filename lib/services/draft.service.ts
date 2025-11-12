@@ -157,7 +157,7 @@ export async function restoreDraftVersion(
   const newVersion = await createSnapshot({
     draftId,
     content: oldVersion.content,
-    plainText: oldVersion.plainText,
+    plainText: oldVersion.plainText || '',
     createdBy: userId,
     changeDescription: `Restored from version ${version}`,
   });

@@ -22,11 +22,11 @@ import { z } from 'zod';
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string; userId: string } }
+  { params }: { params: Promise<{ id: string; userId: string }> }
 ) {
   try {
-    const draftId = params.id;
-    const userId = params.userId;
+    const { id: draftId } = await params;
+    const { userId } = await params;
 
     // Require owner permission to update collaborator permissions
     const ctx = await requireOwnerPermission(request, draftId);
@@ -61,7 +61,7 @@ export async function PATCH(
           error: {
             code: 'VALIDATION_ERROR',
             message: 'Invalid input',
-            details: error.errors,
+            details: error.issues,
             timestamp: new Date().toISOString(),
           }
         },
@@ -84,11 +84,11 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; userId: string } }
+  { params }: { params: Promise<{ id: string; userId: string }> }
 ) {
   try {
-    const draftId = params.id;
-    const userId = params.userId;
+    const { id: draftId } = await params;
+    const { userId } = await params;
 
     // Require owner permission to remove collaborators
     const ctx = await requireOwnerPermission(request, draftId);

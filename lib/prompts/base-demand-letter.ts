@@ -37,16 +37,24 @@ export function buildBaseDemandLetterPrompt(
   templateStructure: any,
   variables: PromptVariables
 ): string {
+  // Build additional variables section (excluding standard fields)
+  const standardFields = ['plaintiffName', 'defendantName', 'incidentDate', 'incidentDescription', 'demandAmount', 'jurisdiction'];
+  const additionalVars = Object.entries(variables)
+    .filter(([key]) => !standardFields.includes(key))
+    .map(([key, value]) => `**${key}:** ${value}`)
+    .join('\n');
+
   return `You are an expert legal assistant helping to draft a formal demand letter for a law firm. Your role is to generate a professional, factually accurate demand letter based on the provided case information.
 
 # Case Information
 
-**Plaintiff:** ${variables.plaintiffName}
-**Defendant:** ${variables.defendantName}
-**Incident Date:** ${variables.incidentDate}
-**Incident Description:** ${variables.incidentDescription}
+**Plaintiff:** ${variables.plaintiffName || '[Not provided]'}
+**Defendant:** ${variables.defendantName || '[Not provided]'}
+**Incident Date:** ${variables.incidentDate || '[Not provided]'}
+**Incident Description:** ${variables.incidentDescription || '[Not provided]'}
 ${variables.demandAmount ? `**Demand Amount:** ${variables.demandAmount}` : ''}
 ${variables.jurisdiction ? `**Jurisdiction:** ${variables.jurisdiction}` : ''}
+${additionalVars ? `\n${additionalVars}` : ''}
 
 # Source Documents
 
@@ -56,9 +64,17 @@ ${sourceDocuments}
 
 # Template Structure
 
-Generate the demand letter following this structure:
+${templateStructure ? `Generate the demand letter following this structure:
 
-${JSON.stringify(templateStructure.sections, null, 2)}
+${JSON.stringify(templateStructure.sections, null, 2)}` : `Generate the demand letter using a standard professional demand letter structure with the following sections:
+
+1. Header (date, addresses)
+2. Introduction (purpose of letter)
+3. Statement of Facts (incident details from source documents)
+4. Legal Basis (liability and damages)
+5. Demand for Settlement (specific amount and deadline)
+6. Consequences of Non-Compliance
+7. Closing`}
 
 # Writing Guidelines
 

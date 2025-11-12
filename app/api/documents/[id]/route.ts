@@ -20,7 +20,7 @@ import { eq } from 'drizzle-orm';
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Authenticate user
@@ -28,7 +28,7 @@ export async function GET(
 
     // Retrieve document with project relationship
     const document = await db.query.sourceDocuments.findFirst({
-      where: eq(sourceDocuments.id, params.id),
+      where: eq(sourceDocuments.id, await params.then(p => p.id)),
       with: {
         project: true,
         uploader: {

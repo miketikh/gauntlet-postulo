@@ -32,10 +32,10 @@ const createCommentSchema = z.object({
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const draftId = params.id;
+    const { id: draftId } = await params;
 
     // Require 'view' permission to see comments
     const ctx = await requireDraftPermission(request, draftId, 'view');
@@ -63,7 +63,7 @@ export async function GET(
     logger.error('Failed to fetch comment threads', {
       action: 'comments.list',
       error: error instanceof Error ? error.message : String(error),
-      draftId: params.id,
+      draftId: await params.then(p => p.id),
     });
 
     const err = error as Error & { statusCode?: number };
@@ -90,10 +90,10 @@ export async function GET(
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const draftId = params.id;
+    const { id: draftId } = await params;
 
     // Require 'comment' permission to create comments
     const ctx = await requireDraftPermission(request, draftId, 'comment');
@@ -133,7 +133,7 @@ export async function POST(
     logger.error('Failed to create comment', {
       action: 'comments.create',
       error: error instanceof Error ? error.message : String(error),
-      draftId: params.id,
+      draftId: await params.then(p => p.id),
     });
 
     if (error instanceof z.ZodError) {
@@ -142,7 +142,7 @@ export async function POST(
           error: {
             code: 'VALIDATION_ERROR',
             message: 'Invalid request data',
-            details: error.errors,
+            details: error.issues,
             timestamp: new Date().toISOString(),
           },
         },

@@ -56,14 +56,13 @@ export function estimateTokenCount(text: string): number {
 }
 
 /**
- * Validate prompt is within token limits
+ * Validate prompt size and estimate token count
  *
- * Checks if the prompt exceeds recommended token limits for the input.
- * Target is 4,000 tokens to leave room for output while staying well
- * within Claude's context window.
+ * Estimates the token count for the prompt for logging and monitoring purposes.
+ * No hard limit is enforced - the API will handle context window limits naturally.
  *
  * @param prompt - Complete prompt to validate
- * @returns Validation result with token count and error message if invalid
+ * @returns Validation result with token count (always valid)
  */
 export function validatePromptSize(prompt: string): {
   valid: boolean;
@@ -71,16 +70,8 @@ export function validatePromptSize(prompt: string): {
   error?: string;
 } {
   const tokenCount = estimateTokenCount(prompt);
-  const MAX_TOKENS = 4000;
 
-  if (tokenCount > MAX_TOKENS) {
-    return {
-      valid: false,
-      tokenCount,
-      error: `Prompt exceeds token limit (${tokenCount} > ${MAX_TOKENS}). Consider shortening source documents or template structure.`,
-    };
-  }
-
+  // Always return valid - no artificial token limits
   return { valid: true, tokenCount };
 }
 

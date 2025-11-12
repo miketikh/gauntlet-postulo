@@ -17,11 +17,11 @@ import { createErrorResponse, NotFoundError } from '@/lib/errors';
  */
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await requireAuth(req);
-    const draftId = params.id;
+    const { id: draftId } = await params;
 
     // Verify draft belongs to user's firm (via project)
     const draft = await getDraftWithProject(draftId);

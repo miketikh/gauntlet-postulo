@@ -34,11 +34,11 @@ const updateCommentSchema = z.object({
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await requireAuth(request);
-    const commentId = params.id;
+    const { id: commentId } = await params;
 
     // Parse and validate request body
     const body = await request.json();
@@ -68,7 +68,6 @@ export async function PATCH(
     logger.error('Failed to update comment', {
       action: 'comments.update',
       error: error instanceof Error ? error.message : String(error),
-      commentId: params.id,
     });
 
     if (error instanceof z.ZodError) {
@@ -77,7 +76,7 @@ export async function PATCH(
           error: {
             code: 'VALIDATION_ERROR',
             message: 'Invalid request data',
-            details: error.errors,
+            details: error.issues,
             timestamp: new Date().toISOString(),
           },
         },
@@ -145,11 +144,11 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const user = await requireAuth(request);
-    const commentId = params.id;
+    const { id: commentId } = await params;
 
     // Delete comment
     await commentService.deleteComment(commentId, user.userId);
@@ -169,7 +168,6 @@ export async function DELETE(
     logger.error('Failed to delete comment', {
       action: 'comments.delete',
       error: error instanceof Error ? error.message : String(error),
-      commentId: params.id,
     });
 
     if (error instanceof Error && error.message === 'Missing authentication token') {
