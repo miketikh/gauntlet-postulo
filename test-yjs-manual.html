@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Yjs Collaboration Manual Test</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    .editor-container { border: 1px solid #ccc; padding: 10px; margin: 10px 0; min-height: 200px; }
+    .status { background: #f0f0f0; padding: 10px; margin: 10px 0; font-family: monospace; }
+    button { margin: 5px; padding: 8px 16px; }
+  </style>
+</head>
+<body>
+  <h1>Yjs Collaboration Manual Test</h1>
+
+  <div>
+    <h2>Instructions:</h2>
+    <ol>
+      <li>Open this file in the browser (after running: pnpm dev)</li>
+      <li>Type in the editor below</li>
+      <li>Check if Yjs document updates appear in the status box</li>
+      <li>Open in two browser tabs to test real-time sync</li>
+    </ol>
+  </div>
+
+  <div>
+    <h3>Editor:</h3>
+    <div id="editor-root"></div>
+  </div>
+
+  <div class="status">
+    <h3>Yjs Document Status:</h3>
+    <div id="status">Waiting for updates...</div>
+  </div>
+
+  <div>
+    <button onclick="showYjsContent()">Show Yjs Content</button>
+    <button onclick="clearEditor()">Clear Editor</button>
+  </div>
+
+  <script type="module">
+    // This would require building the React app and serving it
+    // For now, this is a placeholder to show what we'd test
+
+    console.log('Manual test page loaded');
+    console.log('To properly test:');
+    console.log('1. Navigate to the app in your browser');
+    console.log('2. Create a new document');
+    console.log('3. Open the same document in two browser tabs');
+    console.log('4. Type in one tab and verify changes appear in the other tab');
+    console.log('5. Check browser console for "Yjs doc update" logs');
+
+    document.getElementById('status').innerHTML = `
+      <strong>To test Yjs collaboration:</strong><br>
+      1. Run: pnpm dev<br>
+      2. Navigate to: http://localhost:3000<br>
+      3. Create/open a draft document<br>
+      4. Open browser DevTools console<br>
+      5. Type in the editor<br>
+      6. Look for "Yjs doc update (general):" logs<br>
+      7. Open same document in another tab to test sync<br>
+      <br>
+      <strong>Expected behavior:</strong><br>
+      - Each keystroke should log "Yjs doc update"<br>
+      - Changes in one tab should appear in another tab<br>
+      - Console should show "syncLexicalUpdateToYjs completed"
+    `;
+  </script>
+</body>
+</html>

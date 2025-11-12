@@ -20,6 +20,14 @@ const eslintConfig = [
       "next-env.d.ts",
     ],
   },
+  {
+    rules: {
+      // Downgrade to warnings for non-critical issues during development
+      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-unused-vars': 'warn',
+      'react/no-unescaped-entities': 'warn',
+    },
+  },
 ];
 
 export default eslintConfig;

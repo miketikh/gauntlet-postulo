@@ -35,10 +35,34 @@ app.prepare().then(() => {
     }
   });
 
-  // Create WebSocket server on the same HTTP server
-  const wss = new WebSocketServer({
-    server,
-    path: '/ws', // WebSocket endpoint at ws://localhost:3000/ws
+  // Create WebSocket server (we'll manually handle upgrades to avoid conflicting with Next.js HMR)
+  const wss = new WebSocketServer({ noServer: true });
+
+  // Get Next.js upgrade handler after prepare() has completed
+  const nextHandleUpgrade = app.getUpgradeHandler();
+
+  // Only handle upgrade requests that include our collaboration auth parameters.
+  server.on('upgrade', (request, socket, head) => {
+    const parsedUrl = parse(request.url || '', true);
+    const pathname = parsedUrl.pathname || '';
+    const tokenParam = parsedUrl.query?.token;
+    const token = Array.isArray(tokenParam) ? tokenParam[0] : tokenParam;
+
+    // Skip Next.js internal WebSocket endpoints (e.g. HMR) and any connection without auth token.
+    if (pathname.startsWith('/_next/') || !token) {
+      nextHandleUpgrade(request, socket, head).catch((error) => {
+        logger.error('Failed to handle Next.js WebSocket upgrade', {
+          action: 'server.next_upgrade_error',
+          error: error instanceof Error ? error.message : String(error),
+        });
+        socket.destroy();
+      });
+      return;
+    }
+
+    wss.handleUpgrade(request, socket, head, (ws) => {
+      wss.emit('connection', ws, request);
+    });
   });
 
   // Initialize WebSocket manager
@@ -58,7 +82,7 @@ app.prepare().then(() => {
     logger.info('Server started', {
       action: 'server.start',
       url: `http://${hostname}:${port}`,
-      wsUrl: `ws://${hostname}:${port}/ws`,
+      wsUrl: `ws://${hostname}:${port}`,
       environment: dev ? 'development' : 'production',
     });
 
@@ -68,7 +92,7 @@ app.prepare().then(() => {
 │   Steno Demand Letter Generator                        │
 │                                                         │
 │   HTTP Server:  http://${hostname}:${port.toString().padEnd(31)}│
-│   WebSocket:    ws://${hostname}:${port}/ws${' '.repeat(23)}│
+│   WebSocket:    ws://${hostname}:${port}/${' '.repeat(25)}│
 │   Environment:  ${dev ? 'development' : 'production'}${' '.repeat(32)}│
 │                                                         │
 └─────────────────────────────────────────────────────────┘
