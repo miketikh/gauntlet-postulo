@@ -7,7 +7,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { RichTextEditor } from './rich-text-editor';
 import { useYjsCollaboration } from '@/lib/hooks/use-yjs-collaboration';
 import { usePresenceAwareness } from '@/lib/hooks/use-presence-awareness';
@@ -25,6 +25,11 @@ export interface CollaborativeEditorProps {
    * Draft ID for loading/saving Yjs state
    */
   draftId: string;
+
+  /**
+   * Plain text snapshot used to hydrate the editor if no Yjs state exists yet
+   */
+  initialPlainText?: string;
 
   /**
    * Whether the editor is editable
@@ -89,6 +94,7 @@ export interface CollaborativeEditorProps {
  */
 export function CollaborativeEditor({
   draftId,
+  initialPlainText,
   editable = true,
   className,
   placeholder = 'Start typing...',
@@ -102,7 +108,6 @@ export function CollaborativeEditor({
 }: CollaborativeEditorProps) {
   const { user } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-
   const {
     ydoc,
     isLoading,
@@ -123,6 +128,18 @@ export function CollaborativeEditor({
     enableWebSocket,
   });
 
+  const memoizedUser = useMemo(
+    () =>
+      user
+        ? {
+            id: user.id,
+            name: `${user.firstName} ${user.lastName}`,
+            email: user.email,
+          }
+        : null,
+    [user?.id, user?.firstName, user?.lastName, user?.email]
+  );
+
   // Initialize presence awareness
   const {
     remoteUsers,
@@ -130,11 +147,7 @@ export function CollaborativeEditor({
     updateActivity,
   } = usePresenceAwareness({
     provider: provider || null,
-    user: user ? {
-      id: user.id,
-      name: `${user.firstName} ${user.lastName}`,
-      email: user.email,
-    } : null,
+    user: memoizedUser,
     enabled: enablePresence && enableWebSocket && isConnected,
   });
 
@@ -262,14 +275,16 @@ export function CollaborativeEditor({
 
         {/* Editor */}
         <RichTextEditor
-          yjsDocument={ydoc}
-          editable={editable}
+          initialContent={initialPlainText}
           placeholder={placeholder}
+          editable={editable}
+          yjsDocument={ydoc}
           className={className}
           presenceEnabled={enablePresence && enableWebSocket}
           remoteUsers={remoteUsers}
           onCursorChange={updateCursor}
           onActivity={updateActivity}
+          onRefineWithAI={undefined}
         />
       </div>
 
@@ -287,15 +302,7 @@ export function CollaborativeEditor({
             <div className="hidden lg:block">
               <ActiveUsersList
                 remoteUsers={remoteUsers}
-                currentUser={
-                  user
-                    ? {
-                        id: user.id,
-                        name: `${user.firstName} ${user.lastName}`,
-                        email: user.email,
-                      }
-                    : null
-                }
+            currentUser={memoizedUser}
                 onUserClick={scrollToUserCursor}
                 storageKey={`active-users-list-collapsed-${draftId}`}
               />

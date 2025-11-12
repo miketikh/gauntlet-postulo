@@ -13,9 +13,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { ActiveUsersList } from './active-users-list';
 import { CommentsSidebar } from './comments/comments-sidebar';
 import { VersionHistoryPanel } from './version-history-panel';
-import { Users, MessageSquare, History, ChevronRight, ChevronLeft } from 'lucide-react';
+import { RefinementPanel } from './refinement-panel';
+import { Users, MessageSquare, History, Sparkles, ChevronRight, ChevronLeft, Download } from 'lucide-react';
 import { cn } from '@/lib/utils/utils';
-import { RemoteUser } from '@/lib/types/presence';
+import { RemoteUser } from '@/lib/hooks/use-presence-awareness';
 import { CommentThread } from '@/lib/types/comment';
 
 export interface EditorSidebarProps {
@@ -81,6 +82,22 @@ export interface EditorSidebarProps {
   onRestoreVersion?: (version: number) => void;
 
   /**
+   * Refinement panel props
+   */
+  refinementSelectedText?: string;
+  isRefinementPanelOpen?: boolean;
+  onCloseRefinementPanel?: () => void;
+  onRefine?: (instruction: string, quickActionId?: string) => void;
+  isRefining?: boolean;
+
+  /**
+   * Export props
+   */
+  projectTitle?: string;
+  draftVersion?: number;
+  onExport?: () => void;
+
+  /**
    * Storage key for persisting sidebar state
    */
   storageKey?: string;
@@ -120,6 +137,14 @@ export function EditorSidebar({
   onViewVersion,
   onCompareVersions,
   onRestoreVersion,
+  refinementSelectedText = '',
+  isRefinementPanelOpen = false,
+  onCloseRefinementPanel,
+  onRefine,
+  isRefining = false,
+  projectTitle = 'Untitled',
+  draftVersion = 1,
+  onExport,
   storageKey = 'editor-sidebar',
   className,
 }: EditorSidebarProps) {
@@ -143,6 +168,13 @@ export function EditorSidebar({
   // Count unread/unresolved items
   const unresolvedCommentsCount = commentThreads.filter((t) => !t.resolved).length;
   const activeUsersCount = remoteUsers.length + (currentUser ? 1 : 0);
+
+  // Auto-switch to refinement tab when panel opens
+  useEffect(() => {
+    if (isRefinementPanelOpen) {
+      setActiveTab('refinement');
+    }
+  }, [isRefinementPanelOpen]);
 
   if (isCollapsed) {
     return (
@@ -205,6 +237,33 @@ export function EditorSidebar({
           >
             <History className="h-5 w-5" />
           </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn(
+              'w-10 h-10 p-0',
+              isRefinementPanelOpen && 'bg-accent'
+            )}
+            onClick={() => {
+              onToggleCollapse?.();
+              setActiveTab('refinement');
+            }}
+          >
+            <Sparkles className="h-5 w-5" />
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-10 h-10 p-0"
+            onClick={() => {
+              onToggleCollapse?.();
+              setActiveTab('export');
+            }}
+          >
+            <Download className="h-5 w-5" />
+          </Button>
         </div>
       </div>
     );
@@ -263,14 +322,33 @@ export function EditorSidebar({
             <History className="h-4 w-4 mr-2" />
             <span>History</span>
           </TabsTrigger>
+
+          <TabsTrigger
+            value="refinement"
+            className={cn(
+              'relative rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent',
+              isRefinementPanelOpen && 'bg-accent'
+            )}
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            <span>Refine</span>
+          </TabsTrigger>
+
+          <TabsTrigger
+            value="export"
+            className="relative rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            <span>Export</span>
+          </TabsTrigger>
         </TabsList>
 
         {/* Tab content */}
         <TabsContent value="presence" className="flex-1 m-0 overflow-hidden">
           <ActiveUsersList
             remoteUsers={remoteUsers}
-            currentUser={currentUser}
-            onUserClick={onUserClick}
+            currentUser={currentUser || null}
+            onUserClick={onUserClick ? (user) => onUserClick(user.state.user.id) : undefined}
             storageKey={`${storageKey}-presence`}
           />
         </TabsContent>
@@ -298,6 +376,54 @@ export function EditorSidebar({
             onCompareVersions={onCompareVersions}
             onRestoreVersion={onRestoreVersion}
           />
+        </TabsContent>
+
+        <TabsContent value="refinement" className="flex-1 m-0 overflow-hidden">
+          <RefinementPanel
+            selectedText={refinementSelectedText}
+            isOpen={isRefinementPanelOpen}
+            onClose={onCloseRefinementPanel || (() => {})}
+            onRefine={onRefine || (() => {})}
+            isRefining={isRefining}
+            className="h-full"
+          />
+        </TabsContent>
+
+        <TabsContent value="export" className="flex-1 m-0 overflow-hidden">
+          <ScrollArea className="h-full p-4">
+            <div className="space-y-4">
+              <div>
+                <h4 className="text-sm font-semibold mb-2">Export Document</h4>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Download your demand letter as a Word document.
+                </p>
+              </div>
+
+              <div className="rounded-lg border bg-muted/50 p-4 space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Download className="h-4 w-4 text-muted-foreground" />
+                  <span className="font-medium">Ready to Export</span>
+                </div>
+                <div className="space-y-1 text-sm text-muted-foreground">
+                  <div>Document: {projectTitle}</div>
+                  <div>Version: v{draftVersion}</div>
+                  <div>Format: Microsoft Word (.docx)</div>
+                </div>
+              </div>
+
+              <Button
+                className="w-full"
+                onClick={onExport}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export to Word
+              </Button>
+
+              <div className="text-xs text-muted-foreground">
+                The exported document will include all formatting, firm letterhead (if configured), and metadata.
+              </div>
+            </div>
+          </ScrollArea>
         </TabsContent>
       </Tabs>
     </div>

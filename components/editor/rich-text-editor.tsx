@@ -23,6 +23,8 @@ import { EditorToolbar } from './toolbar';
 import { AutoSavePlugin } from './plugins/auto-save-plugin';
 import { YjsCollaborationPlugin } from './plugins/yjs-collaboration-plugin';
 import { PresencePlugin } from './plugins/presence-plugin';
+import { RefinementContextMenuPlugin } from './plugins/refinement-context-menu-plugin';
+import { InitialContentPlugin } from './plugins/initial-content-plugin';
 import { RemoteUser } from '@/lib/hooks/use-presence-awareness';
 import { cn } from '@/lib/utils/utils';
 import * as Y from 'yjs';
@@ -61,6 +63,14 @@ export interface RichTextEditorProps {
    * Callback when user activity is detected
    */
   onActivity?: () => void;
+  /**
+   * Callback when "Refine with AI" is triggered from context menu
+   */
+  onRefineWithAI?: (selectedText: string) => void;
+  /**
+   * Whether refinement feature is enabled
+   */
+  refinementEnabled?: boolean;
 }
 
 const theme = {
@@ -109,6 +119,8 @@ export function RichTextEditor({
   remoteUsers = [],
   onCursorChange,
   onActivity,
+  onRefineWithAI,
+  refinementEnabled = true,
 }: RichTextEditorProps) {
   const initialConfig = {
     namespace: 'DemandLetterEditor',
@@ -125,6 +137,9 @@ export function RichTextEditor({
       LinkNode,
     ],
     editable,
+    // NOTE: For now, let the editor initialize normally even with Yjs
+    // The binding will sync the initial state to Yjs
+    // editorState: yjsDocument ? null : undefined,
   };
 
   return (
@@ -155,6 +170,11 @@ export function RichTextEditor({
           <ListPlugin />
           <LinkPlugin />
 
+          {/* Initial Content Plugin - must run before Yjs binding */}
+          {initialContent && (
+            <InitialContentPlugin initialContent={initialContent} />
+          )}
+
           {/* Yjs Collaboration Plugin */}
           {yjsDocument && (
             <YjsCollaborationPlugin
@@ -178,6 +198,14 @@ export function RichTextEditor({
               onSave={onSave}
               delay={autoSaveDelay}
               onContentChange={onContentChange}
+            />
+          )}
+
+          {/* Refinement Context Menu Plugin */}
+          {refinementEnabled && onRefineWithAI && editable && (
+            <RefinementContextMenuPlugin
+              onRefineWithAI={onRefineWithAI}
+              enabled={refinementEnabled}
             />
           )}
         </div>

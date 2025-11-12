@@ -4,7 +4,8 @@
  * Part of Story 4.2 - Integrate Yjs for CRDT-Based Document Sync
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import React from 'react';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import * as Y from 'yjs';
@@ -16,6 +17,12 @@ describe('Yjs Integration with Lexical Editor', () => {
 
   beforeEach(() => {
     ydoc = createYjsDocument();
+  });
+
+  afterEach(() => {
+    if (ydoc) {
+      ydoc.destroy();
+    }
   });
 
   describe('Editor initialization with Yjs', () => {
@@ -33,17 +40,14 @@ describe('Yjs Integration with Lexical Editor', () => {
     it('should initialize with empty Yjs document', () => {
       render(<RichTextEditor yjsDocument={ydoc} />);
 
-      const fragment = ydoc.getXmlFragment('root');
-      expect(fragment.length).toBe(0);
+      const yText = ydoc.get('root', Y.XmlText) as Y.XmlText;
+      expect(yText.length).toBe(0);
     });
 
     it('should load existing content from Yjs document', async () => {
       // Pre-populate Yjs document
-      const fragment = ydoc.getXmlFragment('root');
-      const paragraph = new Y.XmlElement('paragraph');
-      const text = new Y.XmlText('Existing content');
-      paragraph.insert(0, [text]);
-      fragment.insert(0, [paragraph]);
+      const yText = ydoc.get('root', Y.XmlText) as Y.XmlText;
+      yText.insert(0, 'Existing content');
 
       render(<RichTextEditor yjsDocument={ydoc} />);
 
@@ -129,11 +133,8 @@ describe('Yjs Integration with Lexical Editor', () => {
       render(<RichTextEditor yjsDocument={ydoc} />);
 
       // Update Yjs document externally
-      const fragment = ydoc.getXmlFragment('root');
-      const paragraph = new Y.XmlElement('paragraph');
-      const text = new Y.XmlText('Remote change');
-      paragraph.insert(0, [text]);
-      fragment.insert(0, [paragraph]);
+      const yText = ydoc.get('root', Y.XmlText) as Y.XmlText;
+      yText.insert(0, 'Remote change');
 
       // Editor should reflect the change
       await waitFor(() => {
@@ -147,39 +148,41 @@ describe('Yjs Integration with Lexical Editor', () => {
       const doc1 = createYjsDocument();
       const doc2 = createYjsDocument();
 
-      render(<RichTextEditor yjsDocument={doc1} editable={true} />);
+      try {
+        render(<RichTextEditor yjsDocument={doc1} editable={true} />);
 
-      const user = userEvent.setup();
-      const editor = screen.getByRole('textbox');
+        const user = userEvent.setup();
+        const editor = screen.getByRole('textbox');
 
-      // Edit in doc1 (via UI)
-      await user.click(editor);
-      await user.keyboard('Local edit');
+        // Edit in doc1 (via UI)
+        await user.click(editor);
+        await user.keyboard('Local edit');
 
-      // Edit in doc2 (simulating remote edit)
-      const fragment2 = doc2.getXmlFragment('root');
-      const para2 = new Y.XmlElement('paragraph');
-      const text2 = new Y.XmlText('Remote edit');
-      para2.insert(0, [text2]);
-      fragment2.insert(0, [para2]);
+        // Edit in doc2 (simulating remote edit)
+        const yText2 = doc2.get('root', Y.XmlText) as Y.XmlText;
+        yText2.insert(0, 'Remote edit');
 
-      // Sync updates
-      const update1 = Y.encodeStateAsUpdate(doc1);
-      const update2 = Y.encodeStateAsUpdate(doc2);
+        // Sync updates
+        const update1 = Y.encodeStateAsUpdate(doc1);
+        const update2 = Y.encodeStateAsUpdate(doc2);
 
-      Y.applyUpdate(doc2, update1);
-      Y.applyUpdate(doc1, update2);
+        Y.applyUpdate(doc2, update1);
+        Y.applyUpdate(doc1, update2);
 
-      // Both edits should be present in both documents
-      await waitFor(() => {
-        const text1 = extractPlainTextFromYjs(doc1);
-        const text2 = extractPlainTextFromYjs(doc2);
+        // Both edits should be present in both documents
+        await waitFor(() => {
+          const text1 = extractPlainTextFromYjs(doc1);
+          const text2 = extractPlainTextFromYjs(doc2);
 
-        expect(text1).toContain('Local edit');
-        expect(text1).toContain('Remote edit');
-        expect(text2).toContain('Local edit');
-        expect(text2).toContain('Remote edit');
-      });
+          expect(text1).toContain('Local edit');
+          expect(text1).toContain('Remote edit');
+          expect(text2).toContain('Local edit');
+          expect(text2).toContain('Remote edit');
+        });
+      } finally {
+        doc1.destroy();
+        doc2.destroy();
+      }
     });
   });
 
@@ -275,7 +278,11 @@ describe('Yjs Integration with Lexical Editor', () => {
 
       // Should be able to apply update to another document
       const doc2 = createYjsDocument();
-      expect(() => Y.applyUpdate(doc2, update)).not.toThrow();
+      try {
+        expect(() => Y.applyUpdate(doc2, update)).not.toThrow();
+      } finally {
+        doc2.destroy();
+      }
     });
   });
 
@@ -284,43 +291,45 @@ describe('Yjs Integration with Lexical Editor', () => {
       const user1Doc = createYjsDocument();
       const user2Doc = createYjsDocument();
 
-      // User 1's editor
-      const { rerender } = render(
-        <RichTextEditor yjsDocument={user1Doc} editable={true} />
-      );
+      try {
+        // User 1's editor
+        const { rerender } = render(
+          <RichTextEditor yjsDocument={user1Doc} editable={true} />
+        );
 
-      const user = userEvent.setup();
-      const editor = screen.getByRole('textbox');
+        const user = userEvent.setup();
+        const editor = screen.getByRole('textbox');
 
-      // User 1 types
-      await user.click(editor);
-      await user.keyboard('User 1 content');
+        // User 1 types
+        await user.click(editor);
+        await user.keyboard('User 1 content');
 
-      // Sync user 1's changes to user 2
-      const update1 = Y.encodeStateAsUpdate(user1Doc);
-      Y.applyUpdate(user2Doc, update1);
+        // Sync user 1's changes to user 2
+        const update1 = Y.encodeStateAsUpdate(user1Doc);
+        Y.applyUpdate(user2Doc, update1);
 
-      // User 2 makes changes (simulated)
-      const fragment2 = user2Doc.getXmlFragment('root');
-      const para2 = new Y.XmlElement('paragraph');
-      const text2 = new Y.XmlText('User 2 content');
-      para2.insert(0, [text2]);
-      fragment2.insert(0, [para2]);
+        // User 2 makes changes (simulated)
+        const yText2 = user2Doc.get('root', Y.XmlText) as Y.XmlText;
+        yText2.insert(0, 'User 2 content');
 
-      // Sync user 2's changes back to user 1
-      const update2 = Y.encodeStateAsUpdate(user2Doc);
-      Y.applyUpdate(user1Doc, update2);
+        // Sync user 2's changes back to user 1
+        const update2 = Y.encodeStateAsUpdate(user2Doc);
+        Y.applyUpdate(user1Doc, update2);
 
-      // Both users should see both contents
-      await waitFor(() => {
-        const text1 = extractPlainTextFromYjs(user1Doc);
-        const text2 = extractPlainTextFromYjs(user2Doc);
+        // Both users should see both contents
+        await waitFor(() => {
+          const text1 = extractPlainTextFromYjs(user1Doc);
+          const text2 = extractPlainTextFromYjs(user2Doc);
 
-        expect(text1).toContain('User 1 content');
-        expect(text1).toContain('User 2 content');
-        expect(text2).toContain('User 1 content');
-        expect(text2).toContain('User 2 content');
-      });
+          expect(text1).toContain('User 1 content');
+          expect(text1).toContain('User 2 content');
+          expect(text2).toContain('User 1 content');
+          expect(text2).toContain('User 2 content');
+        });
+      } finally {
+        user1Doc.destroy();
+        user2Doc.destroy();
+      }
     });
   });
 });

@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import * as Y from 'yjs';
-import { useWebSocketProvider } from './use-websocket-provider';
+import { useWebSocketProvider, ConnectionStatus } from './use-websocket-provider';
 import { useAuth } from './use-auth';
 
 export interface UseYjsCollaborationOptions {
@@ -42,7 +42,7 @@ export interface UseYjsCollaborationOptions {
   /**
    * Callback when WebSocket connection status changes
    */
-  onConnectionStatusChange?: (status: 'connected' | 'connecting' | 'disconnected') => void;
+  onConnectionStatusChange?: (status: ConnectionStatus) => void;
 }
 
 export interface UseYjsCollaborationReturn {
@@ -130,6 +130,9 @@ export function useYjsCollaboration({
   onSaveError,
   onConnectionStatusChange,
 }: UseYjsCollaborationOptions): UseYjsCollaborationReturn {
+  // Use ref for ydoc to avoid re-renders when it's created/updated
+  // Only expose it via state for components that need to re-render when it changes
+  const ydocRef = useRef<Y.Doc | null>(null);
   const [ydoc, setYdoc] = useState<Y.Doc | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -138,10 +141,27 @@ export function useYjsCollaboration({
 
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastSavedStateRef = useRef<string>('');
+  const hasLoadedRef = useRef(false);
 
   // Get authentication token
-  const { user } = useAuth();
-  const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+  const { user, accessToken } = useAuth();
+  const token = accessToken;
+
+  // Store callbacks in refs to avoid dependency changes
+  const onSaveCompleteRef = useRef(onSaveComplete);
+  const onSaveErrorRef = useRef(onSaveError);
+
+  useEffect(() => {
+    onSaveCompleteRef.current = onSaveComplete;
+    onSaveErrorRef.current = onSaveError;
+  }, [onSaveComplete, onSaveError]);
+
+  // Memoized callback for WebSocket sync completion
+  const handleSync = useCallback(() => {
+    // When sync completes, consider changes as saved
+    // (they're saved on the server via WebSocket)
+    setHasUnsavedChanges(false);
+  }, []);
 
   // WebSocket provider for real-time sync
   const {
@@ -158,17 +178,20 @@ export function useYjsCollaboration({
     token: token || '',
     enabled: enableWebSocket && !!ydoc && !!token,
     onStatusChange: onConnectionStatusChange,
-    onSync: () => {
-      // When sync completes, consider changes as saved
-      // (they're saved on the server via WebSocket)
-      setHasUnsavedChanges(false);
-    },
+    onSync: handleSync,
   });
 
   /**
    * Load Yjs document from database
+   * This should only be called once on mount
    */
   const loadDocument = useCallback(async () => {
+    // Prevent duplicate loads
+    if (hasLoadedRef.current) {
+      return;
+    }
+    hasLoadedRef.current = true;
+
     try {
       setIsLoading(true);
       setError(null);
@@ -180,7 +203,7 @@ export function useYjsCollaboration({
 
       const data = await response.json();
 
-      // Create new Y.Doc
+      // Create new Y.Doc only once
       const newYdoc = new Y.Doc();
 
       // If there's existing state, apply it
@@ -188,13 +211,16 @@ export function useYjsCollaboration({
         const update = Uint8Array.from(atob(data.yjsState), (c) => c.charCodeAt(0));
         Y.applyUpdate(newYdoc, update);
       } else {
-        // Initialize with empty root fragment
-        newYdoc.getXmlFragment('root');
+        // Initialize with empty root XmlText (required for Lexical binding)
+        newYdoc.get('root', Y.XmlText);
       }
 
       // Track the initial state
       lastSavedStateRef.current = encodeState(newYdoc);
 
+      // Store in both ref and state
+      // Ref for stable reference, state for triggering initial render
+      ydocRef.current = newYdoc;
       setYdoc(newYdoc);
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Unknown error');
@@ -207,6 +233,7 @@ export function useYjsCollaboration({
 
   /**
    * Save Yjs document to database
+   * Uses refs for callbacks to avoid dependency changes
    */
   const saveDocument = useCallback(
     async (doc: Y.Doc) => {
@@ -242,21 +269,21 @@ export function useYjsCollaboration({
         lastSavedStateRef.current = currentState;
         setHasUnsavedChanges(false);
 
-        if (onSaveComplete) {
-          onSaveComplete();
+        if (onSaveCompleteRef.current) {
+          onSaveCompleteRef.current();
         }
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Unknown error');
         setError(error);
-        if (onSaveError) {
-          onSaveError(error);
+        if (onSaveErrorRef.current) {
+          onSaveErrorRef.current(error);
         }
         console.error('Failed to save Yjs document:', error);
       } finally {
         setIsSaving(false);
       }
     },
-    [draftId, onSaveComplete, onSaveError]
+    [draftId]
   );
 
   /**
@@ -269,17 +296,20 @@ export function useYjsCollaboration({
   }, [ydoc, hasUnsavedChanges, saveDocument]);
 
   /**
-   * Load document on mount
+   * Load document on mount - ONLY ONCE
    */
   useEffect(() => {
     loadDocument();
-  }, [loadDocument]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only run on mount
 
   /**
    * Set up update listener and auto-save
+   * Uses ydocRef to avoid re-creating this effect
    */
   useEffect(() => {
-    if (!ydoc) return;
+    const doc = ydocRef.current;
+    if (!doc) return;
 
     const updateHandler = (update: Uint8Array, origin: any) => {
       // Mark as having unsaved changes
@@ -292,31 +322,35 @@ export function useYjsCollaboration({
 
       // Set new auto-save timer
       autoSaveTimerRef.current = setTimeout(() => {
-        saveDocument(ydoc);
+        if (ydocRef.current) {
+          saveDocument(ydocRef.current);
+        }
       }, autoSaveInterval);
     };
 
-    ydoc.on('update', updateHandler);
+    doc.on('update', updateHandler);
 
     return () => {
-      ydoc.off('update', updateHandler);
+      doc.off('update', updateHandler);
       if (autoSaveTimerRef.current) {
         clearTimeout(autoSaveTimerRef.current);
       }
     };
-  }, [ydoc, autoSaveInterval, saveDocument]);
+  }, [ydoc, autoSaveInterval, saveDocument]); // ydoc only to trigger when initially set
 
   /**
    * Save on unmount if there are unsaved changes
    */
   useEffect(() => {
     return () => {
-      if (ydoc && hasUnsavedChanges) {
+      const doc = ydocRef.current;
+      if (doc && hasLoadedRef.current) {
         // Attempt synchronous save on unmount
-        saveDocument(ydoc);
+        saveDocument(doc);
       }
     };
-  }, [ydoc, hasUnsavedChanges, saveDocument]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - only cleanup on unmount
 
   return {
     ydoc,

@@ -47,7 +47,7 @@ export function PresencePlugin({
   onActivity,
 }: PresencePluginProps) {
   const [editor] = useLexicalComposerContext();
-  const containerRef = useRef<HTMLDivElement | null>(null);
+  const containerRef = useRef<HTMLElement | null>(null);
   const cursorsRef = useRef<Map<number, HTMLDivElement>>(new Map());
   const selectionsRef = useRef<Map<number, HTMLDivElement>>(new Map());
 

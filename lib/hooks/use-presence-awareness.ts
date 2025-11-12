@@ -156,6 +156,12 @@ export function usePresenceAwareness({
   const [localState, setLocalState] = useState<PresenceState | null>(null);
 
   const updateTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const onRemoteUsersChangeRef = useRef(onRemoteUsersChange);
+
+  // Update callback ref when it changes (without triggering other effects)
+  useEffect(() => {
+    onRemoteUsersChangeRef.current = onRemoteUsersChange;
+  }, [onRemoteUsersChange]);
 
   /**
    * Initialize awareness when provider is available
@@ -189,7 +195,7 @@ export function usePresenceAwareness({
     return () => {
       awarenessInstance.setLocalState(null);
     };
-  }, [provider, enabled, user]);
+  }, [provider, enabled, user?.id, user?.name, user?.email]);
 
   /**
    * Listen for awareness changes and track remote users
@@ -221,7 +227,7 @@ export function usePresenceAwareness({
       });
 
       setRemoteUsers(users);
-      onRemoteUsersChange?.(users);
+      onRemoteUsersChangeRef.current?.(users);
     };
 
     // Listen for awareness changes
@@ -237,7 +243,7 @@ export function usePresenceAwareness({
       awareness.off('change', updateRemoteUsers);
       clearInterval(inactiveCheckInterval);
     };
-  }, [awareness, onRemoteUsersChange, inactiveTimeout]);
+  }, [awareness, inactiveTimeout]); // Removed onRemoteUsersChange - now called via ref
 
   /**
    * Update cursor position

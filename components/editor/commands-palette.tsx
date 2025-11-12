@@ -69,7 +69,7 @@ export interface CommandsPaletteProps {
  * - Keyboard shortcut display
  * - Quick access with Ctrl+K / Cmd+K
  */
-export function CommandsPalette({
+export default function CommandsPalette({
   isOpen,
   onClose,
   commands,

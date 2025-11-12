@@ -5,7 +5,7 @@
  */
 
 import React from 'react';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { Awareness } from 'y-protocols/awareness';
 import * as Y from 'yjs';
@@ -52,7 +52,7 @@ vi.mock('y-websocket', () => {
     connect = vi.fn();
     disconnect = vi.fn();
     destroy = vi.fn();
-    on = vi.fn((event: string, callback: Function) => {
+    on = vi.fn((event: string, callback: (...args: unknown[]) => void) => {
       if (event === 'status') {
         // Simulate connected status
         setTimeout(() => callback({ status: 'connected' }), 0);

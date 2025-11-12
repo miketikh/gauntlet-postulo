@@ -10,6 +10,9 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import * as Y from 'yjs';
 import { WebsocketProvider } from 'y-websocket';
 
+// Maximum number of reconnection attempts before giving up
+const MAX_RECONNECT_ATTEMPTS = 10;
+
 export type ConnectionStatus = 'connected' | 'connecting' | 'disconnected' | 'syncing';
 
 export interface UseWebSocketProviderOptions {
@@ -143,13 +146,45 @@ export function useWebSocketProvider({
   const offlineStartTime = useRef<number | null>(null);
   const offlineDurationTimer = useRef<NodeJS.Timeout | null>(null);
   const statusRef = useRef<ConnectionStatus>('disconnected');
+  const onStatusChangeRef = useRef(onStatusChange);
+  const onSyncRef = useRef(onSync);
+  const onErrorRef = useRef(onError);
+  const lastConnectionConfig = useRef<{ draftId: string; token: string; url: string } | null>(null);
+  const hasInitializedRef = useRef(false);
+  const hasReachedMaxAttemptsRef = useRef(false);
+
+  // Store ydoc in ref to avoid re-creating provider when ydoc reference changes
+  const ydocRef = useRef<Y.Doc>(ydoc);
+  // Track whether ydoc is ready (without storing the ydoc object itself)
+  const [ydocReady, setYdocReady] = useState(!!ydoc);
+
+  // Update ydocRef when ydoc changes, but don't reinitialize provider
+  useEffect(() => {
+    ydocRef.current = ydoc;
+    // Only set to true once, never back to false
+    if (ydoc && !ydocReady) {
+      setYdocReady(true);
+    }
+  }, [ydoc, ydocReady]);
+
+  useEffect(() => {
+    onStatusChangeRef.current = onStatusChange;
+  }, [onStatusChange]);
+
+  useEffect(() => {
+    onSyncRef.current = onSync;
+  }, [onSync]);
+
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
 
   // Update status and notify callback
   const updateStatus = useCallback(
     (newStatus: ConnectionStatus) => {
       statusRef.current = newStatus;
       setStatus(newStatus);
-      onStatusChange?.(newStatus);
+      onStatusChangeRef.current?.(newStatus);
 
       // Track offline duration
       if (newStatus === 'disconnected') {
@@ -175,7 +210,7 @@ export function useWebSocketProvider({
         }
       }
     },
-    [onStatusChange]
+    []
   );
 
   /**
@@ -188,129 +223,6 @@ export function useWebSocketProvider({
     const delay = Math.min(baseDelay * Math.pow(2, attempts), maxDelay);
     return delay;
   }, []);
-
-  /**
-   * Initialize WebSocket provider
-   */
-  const initializeProvider = useCallback(() => {
-    if (!enabled || !ydoc || !draftId || !token) {
-      return;
-    }
-
-    // Clear any existing reconnect timer
-    if (reconnectTimer.current) {
-      clearTimeout(reconnectTimer.current);
-      reconnectTimer.current = null;
-    }
-
-    try {
-      // Determine WebSocket URL
-      const baseUrl = wsUrl || process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3000';
-      const url = baseUrl.replace(/^http/, 'ws'); // Ensure ws:// or wss://
-
-      // Create WebSocket provider with authentication
-      const wsProvider = new WebsocketProvider(
-        url,
-        draftId,
-        ydoc,
-        {
-          // Connection options
-          connect: true,
-          params: {
-            token,
-            draftId,
-          },
-          // Disable automatic reconnection - we'll handle it manually
-          disableBc: true,
-          // WebSocket connection options
-          WebSocketPolyfill: WebSocket,
-        }
-      );
-
-      // Store reference
-      providerRef.current = wsProvider;
-      setProvider(wsProvider);
-
-      // Set initial status
-      updateStatus('connecting');
-
-      // Connection status handlers
-      wsProvider.on('status', (event: { status: string }) => {
-        if (event.status === 'connected') {
-          // Show syncing state briefly before connected
-          updateStatus('syncing');
-
-          // Wait for initial sync to complete
-          // This is handled by the sync event, but we set a max timeout
-          const syncTimeout = setTimeout(() => {
-            if (providerRef.current && event.status === 'connected') {
-              updateStatus('connected');
-              reconnectAttempts.current = 0; // Reset attempts on successful connection
-            }
-          }, 2000); // Give 2 seconds for sync to complete
-
-          // Store timeout for cleanup
-          (wsProvider as any)._syncTimeout = syncTimeout;
-        } else if (event.status === 'disconnected') {
-          updateStatus('disconnected');
-
-          // Attempt reconnection with exponential backoff
-          const delay = getReconnectDelay(reconnectAttempts.current);
-
-          console.log(
-            `WebSocket disconnected. Reconnecting in ${delay}ms (attempt ${reconnectAttempts.current + 1})...`
-          );
-
-          reconnectTimer.current = setTimeout(() => {
-            reconnectAttempts.current++;
-            wsProvider.connect();
-          }, delay);
-        }
-      });
-
-      // Sync handler
-      wsProvider.on('sync', (isSynced: boolean) => {
-        if (isSynced) {
-          // Clear sync timeout if exists
-          if ((wsProvider as any)._syncTimeout) {
-            clearTimeout((wsProvider as any)._syncTimeout);
-            (wsProvider as any)._syncTimeout = null;
-          }
-
-          // Transition from syncing to connected
-          if (statusRef.current === 'syncing') {
-            updateStatus('connected');
-            reconnectAttempts.current = 0;
-          }
-
-          onSync?.();
-        }
-      });
-
-      // Connection established
-      wsProvider.on('connection', () => {
-        updateStatus('connected');
-      });
-
-      // Connection error
-      wsProvider.on('connection-error', (error: Error) => {
-        console.error('WebSocket connection error:', error);
-        updateStatus('disconnected');
-        onError?.(error);
-      });
-
-      // Connection closed
-      wsProvider.on('connection-close', (event: CloseEvent) => {
-        console.log('WebSocket connection closed:', event.code, event.reason);
-        updateStatus('disconnected');
-      });
-
-    } catch (error) {
-      console.error('Failed to initialize WebSocket provider:', error);
-      updateStatus('disconnected');
-      onError?.(error instanceof Error ? error : new Error('Unknown error'));
-    }
-  }, [draftId, ydoc, token, wsUrl, enabled, updateStatus, onSync, onError, getReconnectDelay]);
 
   /**
    * Cleanup provider
@@ -333,18 +245,224 @@ export function useWebSocketProvider({
         (providerRef.current as any)._syncTimeout = null;
       }
 
-      providerRef.current.destroy();
+      try {
+        providerRef.current.destroy();
+      } catch (error) {
+        console.error('Failed to destroy WebSocket provider:', error);
+      }
+
       providerRef.current = null;
       setProvider(null);
+      lastConnectionConfig.current = null;
     }
-  }, []);
+
+    reconnectAttempts.current = 0;
+    hasReachedMaxAttemptsRef.current = false;
+    updateStatus('disconnected');
+  }, [updateStatus]);
+
+  /**
+   * Initialize WebSocket provider
+   * Uses ydocRef to avoid re-initialization when ydoc reference changes
+   */
+  const initializeProvider = useCallback(() => {
+    const doc = ydocRef.current;
+    if (!enabled || !doc || !draftId || !token) {
+      return;
+    }
+
+    // Reset reconnection attempts when initializing a new provider
+    reconnectAttempts.current = 0;
+    hasReachedMaxAttemptsRef.current = false;
+
+    // Prevent duplicate providers with the same configuration
+    const baseUrl = wsUrl || process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3000';
+    const url = baseUrl.replace(/^http/, 'ws'); // Ensure ws:// or wss://
+    const currentConfig = { draftId, token, url };
+    const previousConfig = lastConnectionConfig.current;
+
+    if (providerRef.current) {
+      if (
+        previousConfig &&
+        previousConfig.draftId === currentConfig.draftId &&
+        previousConfig.token === currentConfig.token &&
+        previousConfig.url === currentConfig.url
+      ) {
+        // Already initialized with same configuration; ensure connection is active
+        if (statusRef.current === 'disconnected') {
+          reconnectAttempts.current = 0;
+          providerRef.current.connect();
+          updateStatus('connecting');
+        }
+        return;
+      }
+
+      // Configuration changed – tear down existing connection before reinitializing
+      cleanupProvider();
+    }
+
+    // Clear any existing reconnect timer
+    if (reconnectTimer.current) {
+      clearTimeout(reconnectTimer.current);
+      reconnectTimer.current = null;
+    }
+
+    try {
+      // Create WebSocket provider with authentication
+      const wsProvider = new WebsocketProvider(
+        url,
+        draftId,
+        doc,
+        {
+          // Connection options
+          connect: true,
+          params: {
+            token,
+            draftId,
+          },
+          // Disable automatic reconnection - we'll handle it manually
+          disableBc: true,
+          // WebSocket connection options
+          WebSocketPolyfill: WebSocket,
+        }
+      );
+
+      // Store reference
+      providerRef.current = wsProvider;
+      setProvider(wsProvider);
+      lastConnectionConfig.current = currentConfig;
+
+      // Set initial status
+      updateStatus('connecting');
+
+      // Connection status handlers
+      wsProvider.on('status', (event: { status: string }) => {
+        if (event.status === 'connected') {
+          // Show syncing state briefly before connected
+          updateStatus('syncing');
+
+          // Wait for initial sync to complete
+          // This is handled by the sync event, but we set a max timeout
+          const syncTimeout = setTimeout(() => {
+            if (providerRef.current && event.status === 'connected') {
+              updateStatus('connected');
+              reconnectAttempts.current = 0; // Reset attempts on successful connection
+            }
+          }, 2000); // Give 2 seconds for sync to complete
+
+          // Store timeout for cleanup
+          (wsProvider as any)._syncTimeout = syncTimeout;
+        } else if (event.status === 'disconnected') {
+          // Update status WITHOUT calling updateStatus to avoid re-renders
+          statusRef.current = 'disconnected';
+          setStatus('disconnected');
+
+          // Check if we've exceeded max reconnection attempts
+          if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
+            hasReachedMaxAttemptsRef.current = true;
+            console.error(
+              `WebSocket failed to connect after ${MAX_RECONNECT_ATTEMPTS} attempts. Stopping reconnection.`
+            );
+            onErrorRef.current?.(
+              new Error('WebSocket connection failed: Maximum retry attempts exceeded')
+            );
+            return; // STOP RETRYING - DO NOT RECONNECT
+          }
+
+          // Don't retry if we've already reached max attempts
+          if (hasReachedMaxAttemptsRef.current) {
+            console.log('Already reached max reconnection attempts, not retrying');
+            return; // STOP RETRYING
+          }
+
+          // IMPORTANT: Only reconnect if this is a network disconnection,
+          // NOT if there are protocol errors
+          // Check if there was a recent error
+          const delay = getReconnectDelay(reconnectAttempts.current);
+
+          console.log(
+            `WebSocket disconnected. Will reconnect in ${delay}ms (attempt ${reconnectAttempts.current + 1})...`
+          );
+
+          // Clear any existing timer
+          if (reconnectTimer.current) {
+            clearTimeout(reconnectTimer.current);
+          }
+
+          reconnectTimer.current = setTimeout(() => {
+            if (!hasReachedMaxAttemptsRef.current && providerRef.current) {
+              reconnectAttempts.current++;
+              try {
+                wsProvider.connect();
+              } catch (e) {
+                console.error('Reconnection failed:', e);
+                hasReachedMaxAttemptsRef.current = true;
+              }
+            }
+          }, delay);
+        }
+      });
+
+      // Sync handler
+      wsProvider.on('sync', (isSynced: boolean) => {
+        if (isSynced) {
+          // Clear sync timeout if exists
+          if ((wsProvider as any)._syncTimeout) {
+            clearTimeout((wsProvider as any)._syncTimeout);
+            (wsProvider as any)._syncTimeout = null;
+          }
+
+          // Transition from syncing to connected
+          if (statusRef.current === 'syncing') {
+            updateStatus('connected');
+            reconnectAttempts.current = 0;
+          }
+
+          onSyncRef.current?.();
+        }
+      });
+
+      // Connection established
+      wsProvider.on('connection', () => {
+        updateStatus('connected');
+      });
+
+      // Connection error - DO NOT re-initialize, just log
+      wsProvider.on('connection-error', (error: Error) => {
+        console.error('WebSocket connection error:', error);
+        // DO NOT call updateStatus here - it can trigger re-renders
+        // Just set the ref
+        statusRef.current = 'disconnected';
+        setStatus('disconnected');
+        onErrorRef.current?.(error);
+      });
+
+      // Connection closed - DO NOT re-initialize, just log
+      wsProvider.on('connection-close', (event: CloseEvent) => {
+        console.log('WebSocket connection closed:', event.code, event.reason);
+        // DO NOT call updateStatus here - it can trigger re-renders
+        statusRef.current = 'disconnected';
+        setStatus('disconnected');
+      });
+
+    } catch (error) {
+      console.error('Failed to initialize WebSocket provider:', error);
+      // DO NOT call updateStatus here - it can trigger re-renders
+      statusRef.current = 'disconnected';
+      setStatus('disconnected');
+      onErrorRef.current?.(error instanceof Error ? error : new Error('Unknown error'));
+    }
+  }, [draftId, token, wsUrl, enabled, updateStatus, getReconnectDelay, cleanupProvider]);
 
   /**
    * Manual reconnect
    */
   const reconnect = useCallback(() => {
+    // Reset attempts when manually reconnecting
+    reconnectAttempts.current = 0;
+    hasReachedMaxAttemptsRef.current = false;
+
     if (providerRef.current) {
-      reconnectAttempts.current = 0;
       providerRef.current.connect();
     } else {
       initializeProvider();
@@ -367,19 +485,26 @@ export function useWebSocketProvider({
   }, [updateStatus]);
 
   /**
-   * Initialize provider on mount or when dependencies change
+   * Initialize provider when ydoc becomes available
+   * CRITICAL: Depends on enabled and ydocReady (boolean), NOT the ydoc object
    */
   useEffect(() => {
-    if (enabled) {
+    const doc = ydocRef.current;
+
+    if (enabled && ydocReady && doc && !hasInitializedRef.current) {
+      hasInitializedRef.current = true;
       initializeProvider();
-    } else {
-      cleanupProvider();
     }
 
+    // Cleanup ONLY on unmount or when explicitly disabled
     return () => {
-      cleanupProvider();
+      if (!enabled && hasInitializedRef.current) {
+        hasInitializedRef.current = false;
+        cleanupProvider();
+      }
     };
-  }, [enabled, initializeProvider, cleanupProvider]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, ydocReady]); // Depend on enabled and ydocReady boolean, NOT ydoc object
 
   // Calculate if we're in a long offline period (> 5 minutes)
   const isLongOfflinePeriod = offlineDuration > 5 * 60 * 1000; // 5 minutes in milliseconds

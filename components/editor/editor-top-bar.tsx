@@ -258,7 +258,7 @@ export function EditorTopBar({
         <Button size="sm" onClick={() => setIsShareOpen(true)}>
           <Share2 className="h-4 w-4 mr-2" />
           <span className="hidden sm:inline">Share</span>
-          {collaborators.length > 0 && (
+          {collaborators && collaborators.length > 0 && (
             <Badge variant="secondary" className="ml-2 h-5 px-1.5">
               {collaborators.length + 1}
             </Badge>
