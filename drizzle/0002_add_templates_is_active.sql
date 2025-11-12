@@ -8,3 +8,4 @@ CREATE INDEX IF NOT EXISTS "templates_firm_id_idx"
 ON "templates" ("firm_id");
 
 
+

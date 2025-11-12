@@ -36,6 +36,27 @@
       "when": 1762890000000,
       "tag": "0004_add_templates_is_system_template",
       "breakpoints": false
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1762896457737,
+      "tag": "0005_serious_orphan",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1762896588913,
+      "tag": "0006_brainy_vivisector",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1762916000000,
+      "tag": "0007_make_template_id_nullable",
+      "breakpoints": false
     }
   ]
 }

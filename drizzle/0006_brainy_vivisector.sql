@@ -1,0 +1,27 @@
+CREATE INDEX "comments_draft_id_idx" ON "comments" USING btree ("draft_id");--> statement-breakpoint
+CREATE INDEX "comments_thread_id_idx" ON "comments" USING btree ("thread_id");--> statement-breakpoint
+CREATE INDEX "comments_author_id_idx" ON "comments" USING btree ("author_id");--> statement-breakpoint
+CREATE INDEX "comments_resolved_idx" ON "comments" USING btree ("resolved");--> statement-breakpoint
+CREATE INDEX "comments_created_at_idx" ON "comments" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX "draft_exports_format_idx" ON "draft_exports" USING btree ("format");--> statement-breakpoint
+CREATE INDEX "draft_exports_created_at_idx" ON "draft_exports" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX "draft_snapshots_draft_id_idx" ON "draft_snapshots" USING btree ("draft_id");--> statement-breakpoint
+CREATE INDEX "draft_snapshots_version_idx" ON "draft_snapshots" USING btree ("version");--> statement-breakpoint
+CREATE INDEX "draft_snapshots_created_by_idx" ON "draft_snapshots" USING btree ("created_by");--> statement-breakpoint
+CREATE INDEX "draft_snapshots_created_at_idx" ON "draft_snapshots" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX "drafts_project_id_idx" ON "drafts" USING btree ("project_id");--> statement-breakpoint
+CREATE INDEX "drafts_updated_at_idx" ON "drafts" USING btree ("updated_at");--> statement-breakpoint
+CREATE INDEX "projects_firm_id_idx" ON "projects" USING btree ("firm_id");--> statement-breakpoint
+CREATE INDEX "projects_created_by_idx" ON "projects" USING btree ("created_by");--> statement-breakpoint
+CREATE INDEX "projects_status_idx" ON "projects" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "projects_created_at_idx" ON "projects" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX "projects_template_id_idx" ON "projects" USING btree ("template_id");--> statement-breakpoint
+CREATE INDEX "source_documents_project_id_idx" ON "source_documents" USING btree ("project_id");--> statement-breakpoint
+CREATE INDEX "source_documents_uploaded_by_idx" ON "source_documents" USING btree ("uploaded_by");--> statement-breakpoint
+CREATE INDEX "source_documents_extraction_status_idx" ON "source_documents" USING btree ("extraction_status");--> statement-breakpoint
+CREATE INDEX "source_documents_created_at_idx" ON "source_documents" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX "template_versions_version_number_idx" ON "template_versions" USING btree ("version_number");--> statement-breakpoint
+CREATE INDEX "template_versions_created_at_idx" ON "template_versions" USING btree ("created_at");--> statement-breakpoint
+CREATE INDEX "users_firm_id_idx" ON "users" USING btree ("firm_id");--> statement-breakpoint
+CREATE INDEX "users_email_idx" ON "users" USING btree ("email");--> statement-breakpoint
+CREATE INDEX "users_role_idx" ON "users" USING btree ("role");
