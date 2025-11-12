@@ -76,13 +76,16 @@ export async function POST(req: NextRequest) {
       throw new NotFoundError('Project not found');
     }
 
-    // Get template
-    const template = await db.query.templates.findFirst({
-      where: eq(templates.id, templateId),
-    });
+    // Get template (if specified)
+    let template = null;
+    if (templateId) {
+      template = await db.query.templates.findFirst({
+        where: eq(templates.id, templateId),
+      });
 
-    if (!template) {
-      throw new NotFoundError('Template not found');
+      if (!template) {
+        throw new NotFoundError('Template not found');
+      }
     }
 
     // Combine source document text
@@ -117,11 +120,7 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          // Send completion metadata
-          const doneData = `data: ${JSON.stringify({ type: 'done', metadata })}\n\n`;
-          controller.enqueue(encoder.encode(doneData));
-
-          // Save draft to database
+          // Save draft to database BEFORE sending completion
           try {
             // Check if draft already exists for this project
             const existingDraft = await db.query.drafts.findFirst({
@@ -148,13 +147,24 @@ export async function POST(req: NextRequest) {
                 currentVersion: 1,
               });
             }
+
+            // Only send completion if draft save succeeded
+            const doneData = `data: ${JSON.stringify({ type: 'done', metadata })}\n\n`;
+            controller.enqueue(encoder.encode(doneData));
+            controller.close();
           } catch (dbError) {
             console.error('Failed to save draft to database:', dbError);
-            // Don't fail the entire request if DB save fails
-            // The content was still generated and streamed to the client
-          }
 
-          controller.close();
+            // Send error event to client instead of silently failing
+            const errorMessage = dbError instanceof Error ? dbError.message : 'Failed to save draft';
+            const errorData = `data: ${JSON.stringify({
+              type: 'error',
+              error: `Draft save failed: ${errorMessage}`,
+              recoverable: true
+            })}\n\n`;
+            controller.enqueue(encoder.encode(errorData));
+            controller.close();
+          }
         } catch (error) {
           console.error('AI generation error:', error);
 
