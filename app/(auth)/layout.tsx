@@ -23,10 +23,10 @@ export default function AuthLayout({
               <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
                 <Scale className="w-7 h-7 text-white" />
               </div>
-              <h1 className="text-3xl font-bold text-slate-900">Steno</h1>
+              <h1 className="text-3xl font-bold text-slate-900">Postulo</h1>
             </div>
             <p className="text-slate-600 text-center">
-              Demand Letter Generator
+              AI powered Demand Letters
             </p>
           </div>
 
@@ -38,7 +38,7 @@ export default function AuthLayout({
       {/* Footer */}
       <footer className="py-6 text-center text-sm text-slate-600">
         <p>
-          &copy; {new Date().getFullYear()} Steno. All rights reserved.
+          &copy; {new Date().getFullYear()} Postulo. All rights reserved.
         </p>
         <div className="mt-2 flex justify-center gap-4">
           <Link

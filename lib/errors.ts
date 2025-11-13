@@ -1,5 +1,5 @@
 /**
- * Custom Error Classes for Steno Application
+ * Custom Error Classes for Postulo Application
  * Based on architecture.md error handling standards
  * Story 6.9: Extended with user-friendly error messages
  */

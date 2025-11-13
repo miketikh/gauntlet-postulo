@@ -38,7 +38,7 @@ export default function DashboardLayout({
           {/* Logo */}
           <div className="flex items-center gap-2">
             <Scale className="h-6 w-6 text-slate-900" />
-            <h1 className="text-xl font-bold text-slate-900">Steno</h1>
+            <h1 className="text-xl font-bold text-slate-900">Postulo</h1>
           </div>
 
           {/* User Menu */}

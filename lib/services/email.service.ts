@@ -93,7 +93,7 @@ export async function sendExportEmail(params: SendExportEmailParams): Promise<vo
             <p>Best regards,<br>${firmName}</p>
           </div>
           <div class="footer">
-            <p>This email was sent automatically from Steno Demand Letter Generator.</p>
+            <p>This email was sent automatically from Postulo.</p>
             <p>© ${new Date().getFullYear()} ${firmName}. All rights reserved.</p>
           </div>
         </div>
@@ -121,10 +121,10 @@ export async function sendExportEmail(params: SendExportEmailParams): Promise<vo
  */
 export async function sendTestEmail(to: string): Promise<void> {
   await resend.emails.send({
-    from: 'Steno <noreply@yourdomain.com>', // TODO: Configure actual domain
+    from: 'Postulo <noreply@yourdomain.com>', // TODO: Configure actual domain
     to,
-    subject: 'Steno Email Service Test',
-    html: '<p>This is a test email from Steno. If you received this, email service is working correctly.</p>',
+    subject: 'Postulo Email Service Test',
+    html: '<p>This is a test email from Postulo. If you received this, email service is working correctly.</p>',
   });
 }
 

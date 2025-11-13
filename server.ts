@@ -89,7 +89,7 @@ app.prepare().then(() => {
     console.log(`
 ┌─────────────────────────────────────────────────────────┐
 │                                                         │
-│   Steno Demand Letter Generator                        │
+│   Postulo - AI powered Demand Letters                  │
 │                                                         │
 │   HTTP Server:  http://${hostname}:${port.toString().padEnd(31)}│
 │   WebSocket:    ws://${hostname}:${port}/${' '.repeat(25)}│
