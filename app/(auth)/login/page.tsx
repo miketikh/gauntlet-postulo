@@ -11,8 +11,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import axios from 'axios';
 import { AlertCircle, Loader2 } from 'lucide-react';
+import { apiClient } from '@/lib/api/client';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -69,7 +69,7 @@ export default function LoginPage() {
       setError(null);
 
       // Call login API
-      const response = await axios.post('/api/auth/login', data);
+      const response = await apiClient.post('/api/auth/login', data);
 
       const { accessToken, refreshToken, user } = response.data;
 

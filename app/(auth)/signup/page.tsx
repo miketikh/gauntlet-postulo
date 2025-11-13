@@ -11,8 +11,8 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import axios from 'axios';
 import { AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
+import { apiClient } from '@/lib/api/client';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -101,7 +101,7 @@ export default function SignupPage() {
     const fetchFirms = async () => {
       try {
         setIsLoadingFirms(true);
-        const response = await axios.get('/api/firms');
+        const response = await apiClient.get('/api/firms');
         setFirms(response.data.firms);
       } catch (err) {
         console.error('Error fetching firms:', err);
@@ -121,7 +121,7 @@ export default function SignupPage() {
       setError(null);
 
       // Call registration API
-      await axios.post('/api/auth/register', data);
+      await apiClient.post('/api/auth/register', data);
 
       // Show success message
       setSuccess(true);
