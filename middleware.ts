@@ -20,9 +20,40 @@ const publicRoutes = ['/api/auth/login', '/api/auth/register', '/api/firms'];
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // CORS Configuration - Allow Vercel frontend to access Railway backend
+  const allowedOrigins = [
+    'http://localhost:3000',
+    'http://localhost:3001',
+    process.env.NEXT_PUBLIC_FRONTEND_URL || '',
+  ].filter(Boolean);
+
+  const origin = request.headers.get('origin') || '';
+  const isAllowedOrigin = allowedOrigins.some(allowed =>
+    origin === allowed || origin.endsWith('.vercel.app')
+  );
+
+  // Handle preflight OPTIONS requests
+  if (request.method === 'OPTIONS') {
+    return new NextResponse(null, {
+      status: 200,
+      headers: {
+        'Access-Control-Allow-Origin': isAllowedOrigin ? origin : allowedOrigins[0],
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, PATCH, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Max-Age': '86400',
+      },
+    });
+  }
+
   // Allow public API routes
   if (publicRoutes.some((route) => pathname.startsWith(route))) {
-    return NextResponse.next();
+    const response = NextResponse.next();
+    if (isAllowedOrigin) {
+      response.headers.set('Access-Control-Allow-Origin', origin);
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+    }
+    return response;
   }
 
   // Check for auth token in cookie or would be in localStorage (client-side only)
@@ -70,7 +101,13 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  return NextResponse.next();
+  // Add CORS headers to all responses
+  const response = NextResponse.next();
+  if (isAllowedOrigin) {
+    response.headers.set('Access-Control-Allow-Origin', origin);
+    response.headers.set('Access-Control-Allow-Credentials', 'true');
+  }
+  return response;
 }
 
 // Configure which routes use this middleware
