@@ -10,6 +10,10 @@ import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { StreamingView } from '@/components/generation/streaming-view';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { apiClient } from '@/lib/api/client';
+
+// Only for streaming responses (Server-Sent Events)
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export default function GeneratePage() {
   const params = useParams();
@@ -68,17 +72,8 @@ export default function GeneratePage() {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Re-fetch project to get updated extraction status
-      const response = await fetch(`/api/projects/${projectId}`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to check extraction status');
-      }
-
-      const data = await response.json();
+      // Use apiClient for regular API calls
+      const { data } = await apiClient.get(`/api/projects/${projectId}`);
       projectData = data.project;
       attempts++;
     }
@@ -98,7 +93,8 @@ export default function GeneratePage() {
       setExtractionStatus('completed');
 
       abortControllerRef.current = new AbortController();
-      const response = await fetch('/api/ai/generate', {
+      // Use fetch for streaming responses
+      const response = await fetch(`${API_URL}/api/ai/generate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -179,7 +175,7 @@ export default function GeneratePage() {
 
     const fetchProject = async () => {
       try {
-        const response = await fetch(`/api/projects/${projectId}`, {
+        const response = await fetch(getApiUrl(`/api/projects/${projectId}`), {
           headers: {
             Authorization: `Bearer ${accessToken}`,
           },

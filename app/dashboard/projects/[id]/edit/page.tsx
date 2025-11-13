@@ -16,6 +16,10 @@ import { Button } from '@/components/ui/button';
 import { FileText, Save, Download, Share2, PanelLeftClose, PanelRightClose, MessageSquare, Users, History } from 'lucide-react';
 import Link from 'next/link';
 import { CommandAction } from '@/components/editor/commands-palette';
+import { apiClient } from '@/lib/api/client';
+
+// Only for blob responses (downloads)
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 // Code splitting: lazy load heavy editor components
 const CollaborativeEditor = dynamic(
@@ -94,64 +98,40 @@ export default function CollaborativeEditorPage() {
     const fetchData = async () => {
       try {
         // Fetch project details
-        const projectResponse = await fetch(`/api/projects/${projectId}`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-
-        if (projectResponse.status === 401) {
-          logout();
-          router.push('/login');
-          return;
-        }
-
-        if (!projectResponse.ok) {
-          throw new Error('Failed to load project');
-        }
-
-        const projectData = await projectResponse.json();
+        const { data: projectData } = await apiClient.get(`/api/projects/${projectId}`);
         setProject(projectData.project);
 
         // Fetch draft by project ID
         let fetchedDraft = null;
-        const draftResponse = await fetch(`/api/projects/${projectId}/draft`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-
-        if (draftResponse.ok) {
-          const draftData = await draftResponse.json();
+        try {
+          const { data: draftData } = await apiClient.get(`/api/projects/${projectId}/draft`);
           fetchedDraft = draftData.draft;
           console.log('[Edit Page] Draft received, plainText length:', fetchedDraft?.plainText?.length || 0);
           console.log('[Edit Page] Draft plainText preview:', fetchedDraft?.plainText?.substring(0, 100));
           setDraft(fetchedDraft);
-        } else if (draftResponse.status === 404) {
-          // Valid state: project exists but no draft generated yet
-          console.log('No draft found for project - user can generate one');
-          setDraft(null);
-        } else {
-          throw new Error('Failed to load draft');
+        } catch (err: any) {
+          if (err.response?.status === 404) {
+            // Valid state: project exists but no draft generated yet
+            console.log('No draft found for project - user can generate one');
+            setDraft(null);
+          } else {
+            throw err;
+          }
         }
 
         // Fetch source documents
-        const documentsResponse = await fetch(`/api/projects/${projectId}/documents`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-
-        if (documentsResponse.ok) {
-          const documentsData = await documentsResponse.json();
+        try {
+          const { data: documentsData } = await apiClient.get(`/api/projects/${projectId}/documents`);
           setDocuments(documentsData.documents || []);
+        } catch (err) {
+          console.warn('Failed to load documents:', err);
         }
 
         // Fetch comment threads using the draft ID (only if draft exists)
         if (fetchedDraft?.id) {
           try {
-            const commentsResponse = await fetch(`/api/drafts/${fetchedDraft.id}/comments`, {
-              headers: { Authorization: `Bearer ${accessToken}` },
-            });
-
-            if (commentsResponse.ok) {
-              const commentsData = await commentsResponse.json();
-              setCommentThreads(commentsData.threads || []);
-            }
+            const { data: commentsData } = await apiClient.get(`/api/drafts/${fetchedDraft.id}/comments`);
+            setCommentThreads(commentsData.threads || []);
           } catch (err) {
             console.warn('Comments API not available:', err);
           }
@@ -174,7 +154,8 @@ export default function CollaborativeEditorPage() {
 
     setIsExporting(true);
     try {
-      const response = await fetch(`/api/drafts/${draft.id}/export`, {
+      // Use fetch for blob responses
+      const response = await fetch(`${API_URL}/api/drafts/${draft.id}/export`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,

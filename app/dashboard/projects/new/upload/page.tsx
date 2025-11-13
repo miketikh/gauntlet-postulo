@@ -21,6 +21,7 @@ import { DocumentUploadZone } from '@/components/documents/document-upload-zone'
 import { FileQueueList } from '@/components/documents/file-queue-list';
 import { useDocumentUpload } from '@/lib/hooks/use-document-upload';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { apiClient } from '@/lib/api/client';
 
 export default function UploadPage() {
   const router = useRouter();
@@ -50,29 +51,15 @@ export default function UploadPage() {
       setIsCreatingProject(true);
       setError(null);
 
-      const accessToken = useAuthStore.getState().accessToken;
-
-      const response = await fetch('/api/projects', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          templateId: null, // Will be set when user selects template
-          variables: {},
-          title: 'Draft Demand Letter',
-          clientName: 'TBD',
-          status: 'draft',
-        }),
+      const { data } = await apiClient.post('/api/projects', {
+        templateId: null, // Will be set when user selects template
+        variables: {},
+        title: 'Draft Demand Letter',
+        clientName: 'TBD',
+        status: 'draft',
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to create draft project');
-      }
-
-      const { project } = await response.json();
-      setProjectId(project.id);
+      setProjectId(data.project.id);
     } catch (err) {
       console.error('Error creating draft project:', err);
       setError('Failed to create project. Please try again.');
