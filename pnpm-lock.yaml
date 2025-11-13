@@ -137,6 +137,9 @@ importers:
       lexical:
         specifier: ^0.38.2
         version: 0.38.2
+      lib0:
+        specifier: ^0.2.114
+        version: 0.2.114
       lucide-react:
         specifier: ^0.553.0
         version: 0.553.0(react@19.1.0)
