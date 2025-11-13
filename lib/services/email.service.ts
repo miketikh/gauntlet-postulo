@@ -6,8 +6,18 @@
 
 import { Resend } from 'resend';
 
-// Initialize Resend client
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Lazy-initialize Resend client to avoid build-time errors
+let resend: Resend | null = null;
+
+function getResendClient(): Resend {
+  if (!resend) {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY environment variable is not set');
+    }
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
 
 export interface SendExportEmailParams {
   to: string | string[];
@@ -102,7 +112,8 @@ export async function sendExportEmail(params: SendExportEmailParams): Promise<vo
   `;
 
   // Send email via Resend
-  await resend.emails.send({
+  const client = getResendClient();
+  await client.emails.send({
     from: `${firmName} <${senderEmail}>`,
     to: Array.isArray(to) ? to : [to],
     subject,
@@ -120,7 +131,8 @@ export async function sendExportEmail(params: SendExportEmailParams): Promise<vo
  * Send test email to verify configuration
  */
 export async function sendTestEmail(to: string): Promise<void> {
-  await resend.emails.send({
+  const client = getResendClient();
+  await client.emails.send({
     from: 'Postulo <noreply@yourdomain.com>', // TODO: Configure actual domain
     to,
     subject: 'Postulo Email Service Test',

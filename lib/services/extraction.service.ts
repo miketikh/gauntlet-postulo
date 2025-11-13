@@ -7,10 +7,10 @@
 import { extractText, getDocumentProxy } from 'unpdf';
 import mammoth from 'mammoth';
 import { createWorker } from 'tesseract.js';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { db } from '../db/client';
 import { sourceDocuments } from '../db/schema';
 import { eq } from 'drizzle-orm';
+import { getFile } from './storage.service';
 
 const EXTRACTION_TIMEOUT = 120000; // 2 minutes
 const BUCKET_NAME = process.env.S3_BUCKET_NAME || 'steno-documents-dev';
@@ -38,26 +38,7 @@ async function streamToBuffer(stream: any): Promise<Buffer> {
  * Helper: Download file from S3 to buffer
  */
 async function downloadFromS3(s3Key: string): Promise<Buffer> {
-  const s3Client = new S3Client({
-    region: process.env.AWS_REGION || 'us-east-2',
-    credentials: {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-    },
-  });
-
-  const command = new GetObjectCommand({
-    Bucket: BUCKET_NAME,
-    Key: s3Key,
-  });
-
-  const response = await s3Client.send(command);
-
-  if (!response.Body) {
-    throw new Error('S3 response body is empty');
-  }
-
-  return await streamToBuffer(response.Body);
+  return await getFile(s3Key);
 }
 
 /**

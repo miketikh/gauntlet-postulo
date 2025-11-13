@@ -13,14 +13,21 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-// Initialize S3 client
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || 'us-east-2',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
-});
+// Lazy-initialize S3 client to avoid build-time errors
+let s3Client: S3Client | null = null;
+
+function getS3Client(): S3Client {
+  if (!s3Client) {
+    s3Client = new S3Client({
+      region: process.env.AWS_REGION || 'us-east-2',
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
+      },
+    });
+  }
+  return s3Client;
+}
 
 const BUCKET_NAME = process.env.S3_BUCKET_NAME || 'steno-documents-dev';
 
@@ -50,7 +57,8 @@ export async function uploadFile(params: UploadFileParams): Promise<string> {
     Metadata: metadata,
   });
 
-  await s3Client.send(command);
+  const client = getS3Client();
+  await client.send(command);
 
   return key;
 }
@@ -69,7 +77,8 @@ export async function getPresignedDownloadUrl(
     Key: key,
   });
 
-  const url = await getSignedUrl(s3Client, command, { expiresIn });
+  const client = getS3Client();
+  const url = await getSignedUrl(client, command, { expiresIn });
   return url;
 }
 
@@ -87,7 +96,8 @@ export async function getPresignedUploadUrl(
     Key: key,
   });
 
-  const url = await getSignedUrl(s3Client, command, { expiresIn });
+  const client = getS3Client();
+  const url = await getSignedUrl(client, command, { expiresIn });
   return url;
 }
 
@@ -100,7 +110,8 @@ export async function deleteFile(key: string): Promise<void> {
     Key: key,
   });
 
-  await s3Client.send(command);
+  const client = getS3Client();
+  await client.send(command);
 }
 
 /**
@@ -113,7 +124,8 @@ export async function fileExists(key: string): Promise<boolean> {
       Key: key,
     });
 
-    await s3Client.send(command);
+    const client = getS3Client();
+    await client.send(command);
     return true;
   } catch (error: any) {
     if (error.name === 'NotFound') {
@@ -168,7 +180,8 @@ export async function uploadDocumentToS3(file: File, s3Key: string): Promise<str
     },
   });
 
-  await s3Client.send(command);
+  const client = getS3Client();
+  await client.send(command);
   return s3Key;
 }
 
@@ -193,7 +206,8 @@ export async function getFile(key: string): Promise<Buffer> {
     Key: key,
   });
 
-  const response = await s3Client.send(command);
+  const client = getS3Client();
+  const response = await client.send(command);
 
   // Convert stream to buffer
   if (!response.Body) {
