@@ -47,6 +47,9 @@ importers:
       '@lexical/rich-text':
         specifier: ^0.38.2
         version: 0.38.2
+      '@lexical/selection':
+        specifier: ^0.38.2
+        version: 0.38.2
       '@lexical/utils':
         specifier: ^0.38.2
         version: 0.38.2
@@ -188,6 +191,9 @@ importers:
       ws:
         specifier: ^8.14.0
         version: 8.18.3
+      y-protocols:
+        specifier: ^1.0.6
+        version: 1.0.6(yjs@13.6.27)
       y-websocket:
         specifier: ^1.5.1
         version: 1.5.4(yjs@13.6.27)
