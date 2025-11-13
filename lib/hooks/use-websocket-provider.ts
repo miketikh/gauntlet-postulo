@@ -152,6 +152,7 @@ export function useWebSocketProvider({
   const lastConnectionConfig = useRef<{ draftId: string; token: string; url: string } | null>(null);
   const hasInitializedRef = useRef(false);
   const hasReachedMaxAttemptsRef = useRef(false);
+  const isPolicyViolationRef = useRef(false);
 
   // Store ydoc in ref to avoid re-creating provider when ydoc reference changes
   const ydocRef = useRef<Y.Doc>(ydoc);
@@ -274,6 +275,7 @@ export function useWebSocketProvider({
     // Reset reconnection attempts when initializing a new provider
     reconnectAttempts.current = 0;
     hasReachedMaxAttemptsRef.current = false;
+    isPolicyViolationRef.current = false;
 
     // Prevent duplicate providers with the same configuration
     const baseUrl = wsUrl || process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:3000';
@@ -315,12 +317,12 @@ export function useWebSocketProvider({
         doc,
         {
           // Connection options
-          connect: true,
+          connect: false, // We will manually control connection lifecycle
           params: {
             token,
             draftId,
           },
-          // Disable automatic reconnection - we'll handle it manually
+          // Disable BroadcastChannel sync – we'll manage reconnection ourselves
           disableBc: true,
           // WebSocket connection options
           WebSocketPolyfill: WebSocket,
@@ -331,6 +333,23 @@ export function useWebSocketProvider({
       providerRef.current = wsProvider;
       setProvider(wsProvider);
       lastConnectionConfig.current = currentConfig;
+
+      const disableProviderReconnect = () => {
+        if (reconnectTimer.current) {
+          clearTimeout(reconnectTimer.current);
+          reconnectTimer.current = null;
+        }
+
+        try {
+          // Ensure the provider doesn't schedule internal reconnects
+          if ((wsProvider as any).shouldConnect !== undefined) {
+            (wsProvider as any).shouldConnect = false;
+          }
+          wsProvider.disconnect();
+        } catch (error) {
+          // Ignore disconnect errors – the socket may already be closed
+        }
+      };
 
       // Set initial status
       updateStatus('connecting');
@@ -357,12 +376,21 @@ export function useWebSocketProvider({
           statusRef.current = 'disconnected';
           setStatus('disconnected');
 
+          // CRITICAL: Check if this was a policy violation (auth/permission error)
+          // If so, DO NOT reconnect - the user doesn't have access
+          if (isPolicyViolationRef.current) {
+            console.log('Policy violation detected - not reconnecting');
+            disableProviderReconnect();
+            return; // STOP - don't reconnect on auth/permission errors
+          }
+
           // Check if we've exceeded max reconnection attempts
           if (reconnectAttempts.current >= MAX_RECONNECT_ATTEMPTS) {
             hasReachedMaxAttemptsRef.current = true;
             console.error(
               `WebSocket failed to connect after ${MAX_RECONNECT_ATTEMPTS} attempts. Stopping reconnection.`
             );
+            disableProviderReconnect();
             onErrorRef.current?.(
               new Error('WebSocket connection failed: Maximum retry attempts exceeded')
             );
@@ -372,6 +400,7 @@ export function useWebSocketProvider({
           // Don't retry if we've already reached max attempts
           if (hasReachedMaxAttemptsRef.current) {
             console.log('Already reached max reconnection attempts, not retrying');
+            disableProviderReconnect();
             return; // STOP RETRYING
           }
 
@@ -390,13 +419,14 @@ export function useWebSocketProvider({
           }
 
           reconnectTimer.current = setTimeout(() => {
-            if (!hasReachedMaxAttemptsRef.current && providerRef.current) {
+            if (!hasReachedMaxAttemptsRef.current && !isPolicyViolationRef.current && providerRef.current) {
               reconnectAttempts.current++;
               try {
                 wsProvider.connect();
               } catch (e) {
                 console.error('Reconnection failed:', e);
                 hasReachedMaxAttemptsRef.current = true;
+                disableProviderReconnect();
               }
             }
           }, delay);
@@ -437,13 +467,30 @@ export function useWebSocketProvider({
         onErrorRef.current?.(error);
       });
 
-      // Connection closed - DO NOT re-initialize, just log
+      // Connection closed - Check for auth/permission errors
       wsProvider.on('connection-close', (event: CloseEvent) => {
         console.log('WebSocket connection closed:', event.code, event.reason);
+
+        // Code 1008 = Policy Violation (authentication or permission error)
+        // Set flag BEFORE the status event fires to prevent reconnection
+        if (event.code === 1008) {
+          console.error('WebSocket authentication/permission error - will not reconnect');
+          isPolicyViolationRef.current = true;
+          hasReachedMaxAttemptsRef.current = true;
+          disableProviderReconnect();
+
+          // Notify error handler with clear message
+          const errorMessage = event.reason || 'Authentication or permission denied';
+          onErrorRef.current?.(new Error(errorMessage));
+        }
+
         // DO NOT call updateStatus here - it can trigger re-renders
         statusRef.current = 'disconnected';
         setStatus('disconnected');
       });
+
+      // Start the connection now that handlers are registered
+      wsProvider.connect();
 
     } catch (error) {
       console.error('Failed to initialize WebSocket provider:', error);
