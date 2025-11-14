@@ -175,24 +175,11 @@ export default function GeneratePage() {
 
     const fetchProject = async () => {
       try {
-        const response = await fetch(getApiUrl(`/api/projects/${projectId}`), {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
+        const response = await apiClient.get(`/api/projects/${projectId}`, {
           signal: controller.signal,
         });
 
-        if (response.status === 401) {
-          logout();
-          router.push('/login');
-          throw new Error('Unauthorized');
-        }
-
-        if (!response.ok) {
-          throw new Error('Project not found');
-        }
-
-        const data = await response.json();
+        const data = response.data;
 
         if (cancelled) return;
 
