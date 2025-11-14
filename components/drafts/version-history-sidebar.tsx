@@ -9,7 +9,7 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { useAuthStore } from '@/lib/stores/auth.store';
+import { apiClient } from '@/lib/api/client';
 
 // Icons - using Unicode symbols as fallback if lucide-react not installed
 const HistoryIcon = () => <span style={{ fontSize: '1.25rem' }}>⏱</span>;
@@ -54,18 +54,7 @@ export function VersionHistorySidebar({
       setLoading(true);
       setError(null);
 
-      const accessToken = useAuthStore.getState().accessToken;
-      const response = await fetch(`/api/drafts/${draftId}/versions`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch versions');
-      }
-
-      const data = await response.json();
+      const { data } = await apiClient.get(`/api/drafts/${draftId}/versions`);
       setVersions(data.versions || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load versions');
@@ -83,17 +72,7 @@ export function VersionHistorySidebar({
     try {
       setRestoring(version);
 
-      const accessToken = useAuthStore.getState().accessToken;
-      const response = await fetch(`/api/drafts/${draftId}/restore/${version}`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to restore version');
-      }
+      await apiClient.post(`/api/drafts/${draftId}/restore/${version}`);
 
       // Reload versions to show new version
       await fetchVersions();

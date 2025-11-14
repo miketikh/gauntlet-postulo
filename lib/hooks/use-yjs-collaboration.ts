@@ -10,6 +10,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import * as Y from 'yjs';
 import { useWebSocketProvider, ConnectionStatus } from './use-websocket-provider';
 import { useAuth } from './use-auth';
+import { apiClient } from '@/lib/api/client';
 
 export interface UseYjsCollaborationOptions {
   /**
@@ -196,12 +197,9 @@ export function useYjsCollaboration({
       setIsLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/drafts/${draftId}/yjs-state`);
-      if (!response.ok) {
-        throw new Error('Failed to load document');
-      }
-
-      const data = await response.json();
+      const { data } = await apiClient.get(`/api/drafts/${draftId}/yjs-state`, {
+        withCredentials: true,
+      });
 
       // Create new Y.Doc only once
       const newYdoc = new Y.Doc();
@@ -252,19 +250,15 @@ export function useYjsCollaboration({
         const update = Y.encodeStateAsUpdate(doc);
         const base64Update = btoa(String.fromCharCode(...update));
 
-        const response = await fetch(`/api/drafts/${draftId}/yjs-state`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
+        await apiClient.put(
+          `/api/drafts/${draftId}/yjs-state`,
+          {
             yjsState: base64Update,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to save document');
-        }
+          },
+          {
+            withCredentials: true,
+          }
+        );
 
         lastSavedStateRef.current = currentState;
         setHasUnsavedChanges(false);

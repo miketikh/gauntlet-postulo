@@ -153,7 +153,7 @@ export function useLayoutPreferences(options: UseLayoutPreferencesOptions = {}) 
         // TODO: Sync with database if enabled
         if (syncWithDatabase && userId) {
           // Future enhancement: API call to save preferences to database
-          // await fetch(`/api/users/${userId}/preferences`, {
+          // await apiClient.put(`/api/users/${userId}/preferences`, {
           //   method: 'PUT',
           //   body: JSON.stringify({ layout: prefs }),
           // });

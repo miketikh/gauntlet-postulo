@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { CommentThread, CreateCommentRequest } from '@/lib/types/comment';
+import { apiClient } from '@/lib/api/client';
 
 export interface UseCommentsOptions {
   draftId: string;
@@ -54,13 +55,7 @@ export function useComments({
   const fetchThreads = useCallback(async () => {
     try {
       setError(null);
-      const response = await fetch(`/api/drafts/${draftId}/comments`);
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch comments');
-      }
-
-      const data = await response.json();
+      const { data } = await apiClient.get(`/api/drafts/${draftId}/comments`);
       setThreads(data.threads || []);
     } catch (err) {
       const error = err instanceof Error ? err : new Error('Unknown error');
@@ -77,17 +72,7 @@ export function useComments({
   const createComment = useCallback(
     async (request: CreateCommentRequest) => {
       try {
-        const response = await fetch(`/api/drafts/${draftId}/comments`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(request),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to create comment');
-        }
+        await apiClient.post(`/api/drafts/${draftId}/comments`, request);
 
         // Refresh threads to include new comment
         await fetchThreads();
@@ -127,13 +112,7 @@ export function useComments({
   const resolveThread = useCallback(
     async (threadId: string) => {
       try {
-        const response = await fetch(`/api/comments/threads/${threadId}/resolve`, {
-          method: 'POST',
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to resolve thread');
-        }
+        await apiClient.post(`/api/comments/threads/${threadId}/resolve`);
 
         // Update local state
         setThreads((prev) =>
@@ -165,13 +144,7 @@ export function useComments({
   const unresolveThread = useCallback(
     async (threadId: string) => {
       try {
-        const response = await fetch(`/api/comments/threads/${threadId}/resolve`, {
-          method: 'DELETE',
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to unresolve thread');
-        }
+        await apiClient.delete(`/api/comments/threads/${threadId}/resolve`);
 
         // Update local state
         setThreads((prev) =>
@@ -203,17 +176,7 @@ export function useComments({
   const editComment = useCallback(
     async (commentId: string, content: string) => {
       try {
-        const response = await fetch(`/api/comments/${commentId}`, {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ content }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to edit comment');
-        }
+        await apiClient.patch(`/api/comments/${commentId}`, { content });
 
         // Refresh threads to get updated comment
         await fetchThreads();
@@ -232,13 +195,7 @@ export function useComments({
   const deleteComment = useCallback(
     async (commentId: string) => {
       try {
-        const response = await fetch(`/api/comments/${commentId}`, {
-          method: 'DELETE',
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to delete comment');
-        }
+        await apiClient.delete(`/api/comments/${commentId}`);
 
         // Refresh threads to remove deleted comment
         await fetchThreads();

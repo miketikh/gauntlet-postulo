@@ -7,6 +7,7 @@
 'use client';
 
 import { useState } from 'react';
+import { apiClient } from '@/lib/api/client';
 
 export interface ExportDraftInput {
   draftId: string;
@@ -77,28 +78,14 @@ export function useExportDraft(): UseExportDraftResult {
     setExportError(null);
 
     try {
-      const response = await fetch(`/api/drafts/${input.draftId}/export`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          format: input.format,
-          includeMetadata: input.includeMetadata,
-          returnType: input.returnType || 'url',
-          deliveryMethod: input.deliveryMethod || 'download',
-          recipientEmail: input.recipientEmail,
-        }),
+      const { data } = await apiClient.post(`/api/drafts/${input.draftId}/export`, {
+        format: input.format,
+        includeMetadata: input.includeMetadata,
+        returnType: input.returnType || 'url',
+        deliveryMethod: input.deliveryMethod || 'download',
+        recipientEmail: input.recipientEmail,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(
-          errorData.error?.message || `Export failed with status ${response.status}`
-        );
-      }
-
-      const data = await response.json();
       const exportResult = data.export as ExportDraftResult;
 
       // Trigger browser download if presigned URL is available

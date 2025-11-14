@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { apiClient } from '@/lib/api/client';
 
 interface Contributor {
   userId: string;
@@ -64,12 +65,7 @@ export function VersionHistoryPanel({
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/drafts/${draftId}/history`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch history');
-      }
-
-      const data = await response.json();
+      const { data } = await apiClient.get(`/api/drafts/${draftId}/history`);
       setHistory(data.history);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');

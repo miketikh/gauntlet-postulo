@@ -7,7 +7,7 @@ import {
   Download,
   Loader2,
 } from 'lucide-react';
-import { useAuthStore } from '@/lib/stores/auth.store';
+import { apiClient } from '@/lib/api/client';
 
 interface DocumentViewerProps {
   documentId: string;
@@ -28,18 +28,13 @@ export function DocumentViewer({ documentId, fileName, fileType }: DocumentViewe
 
   useEffect(() => {
     // Fetch document with presigned URL
-    const accessToken = useAuthStore.getState().accessToken;
-    fetch(`/api/documents/${documentId}`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-    })
-      .then(res => res.json())
-      .then(data => {
+    apiClient
+      .get(`/api/documents/${documentId}`)
+      .then(({ data }) => {
         setPresignedUrl(data.document.presignedUrl);
         setLoading(false);
       })
-      .catch(err => {
+      .catch(() => {
         setError('Failed to load document');
         setLoading(false);
       });

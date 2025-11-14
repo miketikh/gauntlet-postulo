@@ -316,6 +316,7 @@ export async function GET(request: NextRequest) {
 ```typescript
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
+import { apiClient } from '@/lib/api/client';
 
 export default function ProjectsPage() {
   const [page, setPage] = useState(1);
@@ -324,8 +325,10 @@ export default function ProjectsPage() {
   const { data, isLoading } = useQuery({
     queryKey: ['projects', page, limit],
     queryFn: async () => {
-      const response = await fetch(`/api/projects?page=${page}&limit=${limit}`);
-      return response.json();
+      const { data } = await apiClient.get('/api/projects', {
+        params: { page, limit },
+      });
+      return data;
     },
   });
 

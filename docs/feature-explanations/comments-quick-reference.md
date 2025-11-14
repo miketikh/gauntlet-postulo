@@ -68,69 +68,59 @@ function MyEditor({ draftId }: { draftId: string }) {
 
 ### API Usage
 
+```typescript
+import { apiClient } from '@/lib/api/client';
+```
+
 #### Fetch Comments
 
 ```typescript
-const response = await fetch(`/api/drafts/${draftId}/comments?includeResolved=false`);
-const { threads, count } = await response.json();
+const { data } = await apiClient.get(`/api/drafts/${draftId}/comments`, {
+  params: { includeResolved: false },
+});
+const { threads, count } = data;
 ```
 
 #### Create Comment
 
 ```typescript
-const response = await fetch(`/api/drafts/${draftId}/comments`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    content: 'My comment',
-    selectionStart: 0,
-    selectionEnd: 10,
-  }),
+const { data } = await apiClient.post(`/api/drafts/${draftId}/comments`, {
+  content: 'My comment',
+  selectionStart: 0,
+  selectionEnd: 10,
 });
-const { comment } = await response.json();
+const { comment } = data;
 ```
 
 #### Reply to Thread
 
 ```typescript
-const response = await fetch(`/api/drafts/${draftId}/comments`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    content: 'My reply',
-    selectionStart: 0,
-    selectionEnd: 10,
-    threadId: 'thread-id-here',
-  }),
+await apiClient.post(`/api/drafts/${draftId}/comments`, {
+  content: 'My reply',
+  selectionStart: 0,
+  selectionEnd: 10,
+  threadId: 'thread-id-here',
 });
 ```
 
 #### Update Comment
 
 ```typescript
-const response = await fetch(`/api/comments/${commentId}`, {
-  method: 'PATCH',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    content: 'Updated content',
-  }),
+await apiClient.patch(`/api/comments/${commentId}`, {
+  content: 'Updated content',
 });
 ```
 
 #### Resolve Thread
 
 ```typescript
-const response = await fetch(`/api/comments/threads/${threadId}/resolve`, {
-  method: 'POST',
-});
+await apiClient.post(`/api/comments/threads/${threadId}/resolve`);
 ```
 
 #### Delete Comment
 
 ```typescript
-const response = await fetch(`/api/comments/${commentId}`, {
-  method: 'DELETE',
-});
+await apiClient.delete(`/api/comments/${commentId}`);
 ```
 
 ### Using Comment Service Directly
