@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/select';
 import { Loader2, Users, Plus, MoreVertical, Edit, UserX, UserCheck } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { apiClient } from '@/lib/api/client';
 
 interface User {
   id: string;
@@ -97,18 +98,8 @@ export default function AdminUsersPage() {
     }
 
     try {
-      const response = await fetch('/api/admin/users', {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch users: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      setUsers(data.users);
+      const response = await apiClient.get('/api/admin/users');
+      setUsers(response.data.users);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load users');
     } finally {
@@ -123,20 +114,7 @@ export default function AdminUsersPage() {
     setError(null);
 
     try {
-      const response = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to create user');
-      }
-
+      await apiClient.post('/api/admin/users', data);
       await fetchUsers();
       setIsAddDialogOpen(false);
       reset();
@@ -154,20 +132,7 @@ export default function AdminUsersPage() {
     setError(null);
 
     try {
-      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to update user');
-      }
-
+      await apiClient.patch(`/api/admin/users/${selectedUser.id}`, data);
       await fetchUsers();
       setIsEditDialogOpen(false);
       setSelectedUser(null);
@@ -185,31 +150,10 @@ export default function AdminUsersPage() {
     try {
       if (user.active) {
         // Deactivate
-        const response = await fetch(`/api/admin/users/${user.id}`, {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error?.message || 'Failed to deactivate user');
-        }
+        await apiClient.delete(`/api/admin/users/${user.id}`);
       } else {
         // Reactivate
-        const response = await fetch(`/api/admin/users/${user.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ active: true }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to reactivate user');
-        }
+        await apiClient.patch(`/api/admin/users/${user.id}`, { active: true });
       }
 
       await fetchUsers();

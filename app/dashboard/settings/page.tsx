@@ -16,6 +16,7 @@ import { Loader2, Settings, Save, User, Lock } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { apiClient } from '@/lib/api/client';
 
 interface UserProfile {
   id: string;
@@ -101,21 +102,11 @@ export default function SettingsPage() {
       }
 
       try {
-        const response = await fetch('/api/users/me', {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch profile: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        setUser(data.user);
+        const response = await apiClient.get('/api/users/me');
+        setUser(response.data.user);
         resetProfile({
-          firstName: data.user.firstName,
-          lastName: data.user.lastName,
+          firstName: response.data.user.firstName,
+          lastName: response.data.user.lastName,
         });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load profile');
@@ -135,30 +126,16 @@ export default function SettingsPage() {
     setSuccessProfile(null);
 
     try {
-      const response = await fetch('/api/users/me', {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to update profile');
-      }
-
-      const result = await response.json();
-      setUser(result.user);
+      const response = await apiClient.patch('/api/users/me', data);
+      setUser(response.data.user);
 
       // Update auth store to refresh header
-      updateAuthUser(result.user);
+      updateAuthUser(response.data.user);
 
       setSuccessProfile('Profile updated successfully');
       resetProfile({
-        firstName: result.user.firstName,
-        lastName: result.user.lastName,
+        firstName: response.data.user.firstName,
+        lastName: response.data.user.lastName,
       });
 
       // Clear success message after 3 seconds
@@ -178,20 +155,7 @@ export default function SettingsPage() {
     setSuccessPassword(null);
 
     try {
-      const response = await fetch('/api/users/me/password', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to change password');
-      }
-
+      await apiClient.post('/api/users/me/password', data);
       setSuccessPassword('Password changed successfully');
       resetPassword({
         currentPassword: '',

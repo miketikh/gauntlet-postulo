@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, BarChart3 } from 'lucide-react';
+import { apiClient } from '@/lib/api/client';
 import {
   LineChart,
   Line,
@@ -61,18 +62,8 @@ export default function AdminAnalyticsPage() {
       }
 
       try {
-        const response = await fetch('/api/admin/analytics', {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch analytics: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        setAnalytics(data);
+        const response = await apiClient.get('/api/admin/analytics');
+        setAnalytics(response.data);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load analytics');
       } finally {

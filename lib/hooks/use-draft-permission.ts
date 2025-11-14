@@ -7,7 +7,7 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import { apiClient } from '@/lib/api/client';
 
 export type PermissionLevel = 'view' | 'comment' | 'edit' | 'owner';
 
@@ -76,7 +76,7 @@ export function useDraftPermission(draftId: string | null): UseDraftPermissionRe
         throw new Error('Draft ID is required');
       }
 
-      const response = await axios.get<DraftPermissionData>(
+      const response = await apiClient.get<DraftPermissionData>(
         `/api/drafts/${draftId}/collaborators`
       );
       return response.data;

@@ -16,10 +16,7 @@ import { Button } from '@/components/ui/button';
 import { FileText, Save, Download, Share2, PanelLeftClose, PanelRightClose, MessageSquare, Users, History } from 'lucide-react';
 import Link from 'next/link';
 import { CommandAction } from '@/components/editor/commands-palette';
-import { apiClient } from '@/lib/api/client';
-
-// Only for blob responses (downloads)
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+import { apiClient, API_URL } from '@/lib/api/client';
 
 // Code splitting: lazy load heavy editor components
 const CollaborativeEditor = dynamic(

@@ -10,6 +10,7 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/lib/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, FileText, Users, Upload, TrendingUp } from 'lucide-react';
+import { apiClient } from '@/lib/api/client';
 
 interface DashboardStats {
   totalProjects: number;
@@ -41,18 +42,8 @@ export default function AdminDashboardPage() {
       }
 
       try {
-        const response = await fetch('/api/admin/analytics', {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch analytics: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        setStats(data);
+        const response = await apiClient.get('/api/admin/analytics');
+        setStats(response.data);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load analytics');
       } finally {

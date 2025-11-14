@@ -7,9 +7,12 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '@/lib/stores/auth.store';
 
+// API URL for both apiClient and direct fetch calls (streaming/blob endpoints)
+export const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+
 // Create axios instance
 export const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || '',
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },

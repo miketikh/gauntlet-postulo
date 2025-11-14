@@ -18,6 +18,7 @@ import { Loader2, Settings, Save, Upload, Image as ImageIcon, X } from 'lucide-r
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { apiClient } from '@/lib/api/client';
 
 interface Firm {
   id: string;
@@ -126,36 +127,26 @@ export default function AdminSettingsPage() {
       }
 
       try {
-        const response = await fetch('/api/admin/settings', {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
-
-        if (!response.ok) {
-          throw new Error(`Failed to fetch settings: ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        setFirm(data.firm);
+        const response = await apiClient.get('/api/admin/settings');
+        setFirm(response.data.firm);
 
         // Reset general form
-        resetGeneral({ name: data.firm.name });
+        resetGeneral({ name: response.data.firm.name });
 
         // Reset letterhead form
         resetLetterhead({
-          letterheadCompanyName: data.firm.letterheadCompanyName || '',
-          letterheadAddress: data.firm.letterheadAddress || '',
-          letterheadPhone: data.firm.letterheadPhone || '',
-          letterheadEmail: data.firm.letterheadEmail || '',
-          letterheadWebsite: data.firm.letterheadWebsite || '',
+          letterheadCompanyName: response.data.firm.letterheadCompanyName || '',
+          letterheadAddress: response.data.firm.letterheadAddress || '',
+          letterheadPhone: response.data.firm.letterheadPhone || '',
+          letterheadEmail: response.data.firm.letterheadEmail || '',
+          letterheadWebsite: response.data.firm.letterheadWebsite || '',
         });
 
         // Reset export preferences form
-        const margins = data.firm.exportMargins || { top: 1, bottom: 1, left: 1, right: 1 };
+        const margins = response.data.firm.exportMargins || { top: 1, bottom: 1, left: 1, right: 1 };
         resetExport({
-          exportFontFamily: data.firm.exportFontFamily || 'Times New Roman',
-          exportFontSize: data.firm.exportFontSize || 12,
+          exportFontFamily: response.data.firm.exportFontFamily || 'Times New Roman',
+          exportFontSize: response.data.firm.exportFontSize || 12,
           marginTop: margins.top,
           marginBottom: margins.bottom,
           marginLeft: margins.left,
@@ -179,24 +170,10 @@ export default function AdminSettingsPage() {
     setSuccessGeneral(null);
 
     try {
-      const response = await fetch('/api/admin/settings', {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to update settings');
-      }
-
-      const result = await response.json();
-      setFirm(result.firm);
+      const response = await apiClient.patch('/api/admin/settings', data);
+      setFirm(response.data.firm);
       setSuccessGeneral('Settings updated successfully');
-      resetGeneral({ name: result.firm.name });
+      resetGeneral({ name: response.data.firm.name });
       setTimeout(() => setSuccessGeneral(null), 3000);
     } catch (err) {
       setErrorGeneral(err instanceof Error ? err.message : 'Failed to update settings');
@@ -213,29 +190,15 @@ export default function AdminSettingsPage() {
     setSuccessLetterhead(null);
 
     try {
-      const response = await fetch(`/api/firms/${firm.id}/letterhead`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to update letterhead');
-      }
-
-      const result = await response.json();
-      setFirm(result.firm);
+      const response = await apiClient.patch(`/api/firms/${firm.id}/letterhead`, data);
+      setFirm(response.data.firm);
       setSuccessLetterhead('Letterhead updated successfully');
       resetLetterhead({
-        letterheadCompanyName: result.firm.letterheadCompanyName || '',
-        letterheadAddress: result.firm.letterheadAddress || '',
-        letterheadPhone: result.firm.letterheadPhone || '',
-        letterheadEmail: result.firm.letterheadEmail || '',
-        letterheadWebsite: result.firm.letterheadWebsite || '',
+        letterheadCompanyName: response.data.firm.letterheadCompanyName || '',
+        letterheadAddress: response.data.firm.letterheadAddress || '',
+        letterheadPhone: response.data.firm.letterheadPhone || '',
+        letterheadEmail: response.data.firm.letterheadEmail || '',
+        letterheadWebsite: response.data.firm.letterheadWebsite || '',
       });
       setTimeout(() => setSuccessLetterhead(null), 3000);
     } catch (err) {
@@ -264,27 +227,13 @@ export default function AdminSettingsPage() {
         },
       };
 
-      const response = await fetch('/api/admin/settings', {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(exportData),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to update export preferences');
-      }
-
-      const result = await response.json();
-      setFirm(result.firm);
+      const response = await apiClient.patch('/api/admin/settings', exportData);
+      setFirm(response.data.firm);
       setSuccessExport('Export preferences updated successfully');
-      const margins = result.firm.exportMargins || { top: 1, bottom: 1, left: 1, right: 1 };
+      const margins = response.data.firm.exportMargins || { top: 1, bottom: 1, left: 1, right: 1 };
       resetExport({
-        exportFontFamily: result.firm.exportFontFamily || 'Times New Roman',
-        exportFontSize: result.firm.exportFontSize || 12,
+        exportFontFamily: response.data.firm.exportFontFamily || 'Times New Roman',
+        exportFontSize: response.data.firm.exportFontSize || 12,
         marginTop: margins.top,
         marginBottom: margins.bottom,
         marginLeft: margins.left,
@@ -336,21 +285,12 @@ export default function AdminSettingsPage() {
       const formData = new FormData();
       formData.append('logo', logoFile);
 
-      const response = await fetch(`/api/firms/${firm.id}/letterhead/logo`, {
-        method: 'POST',
+      const response = await apiClient.post(`/api/firms/${firm.id}/letterhead/logo`, formData, {
         headers: {
-          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'multipart/form-data',
         },
-        body: formData,
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || 'Failed to upload logo');
-      }
-
-      const result = await response.json();
-      setFirm(result.firm);
+      setFirm(response.data.firm);
       setSuccessLetterhead('Logo uploaded successfully');
       setLogoFile(null);
       setLogoPreview(null);

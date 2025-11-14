@@ -10,10 +10,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { StreamingView } from '@/components/generation/streaming-view';
 import { useAuthStore } from '@/lib/stores/auth.store';
-import { apiClient } from '@/lib/api/client';
-
-// Only for streaming responses (Server-Sent Events)
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
+import { apiClient, API_URL } from '@/lib/api/client';
 
 export default function GeneratePage() {
   const params = useParams();

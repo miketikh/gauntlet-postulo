@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { useAuthStore } from '@/lib/stores/auth.store';
+import { apiClient } from '@/lib/api/client';
 
 interface FieldError {
   field: string;
@@ -31,38 +32,31 @@ export default function VariablesPage() {
   const [fieldErrors, setFieldErrors] = useState<FieldError[]>([]);
 
   useEffect(() => {
-    if (!templateId) {
-      setTemplateError('No template selected');
-      setLoading(false);
-      return;
-    }
-
-    if (!projectId) {
-      setTemplateError('No project found. Please start from the upload page.');
-      setLoading(false);
-      return;
-    }
-
-    // Fetch template details
-    const accessToken = useAuthStore.getState().accessToken;
-    fetch(`/api/templates/${templateId}`, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
-    })
-      .then(res => {
-        if (!res.ok) throw new Error('Failed to load template');
-        return res.json();
-      })
-      .then(data => {
-        setTemplate(data.template);
+    const fetchTemplate = async () => {
+      if (!templateId) {
+        setTemplateError('No template selected');
         setLoading(false);
-      })
-      .catch(err => {
+        return;
+      }
+
+      if (!projectId) {
+        setTemplateError('No project found. Please start from the upload page.');
+        setLoading(false);
+        return;
+      }
+
+      try {
+        const response = await apiClient.get(`/api/templates/${templateId}`);
+        setTemplate(response.data.template);
+        setLoading(false);
+      } catch (err) {
         console.error('Error loading template:', err);
         setTemplateError('Failed to load template. Please try again.');
         setLoading(false);
-      });
+      }
+    };
+
+    fetchTemplate();
   }, [templateId, projectId]);
 
   const handleGenerate = async (variables: Record<string, any>) => {
@@ -72,25 +66,24 @@ export default function VariablesPage() {
 
     try {
       // Update project with template and variables
-      const accessToken = useAuthStore.getState().accessToken;
-      const response = await fetch(`/api/projects/${projectId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({
-          templateId,
-          variables,
-          title: `${variables.plaintiffName || 'Untitled'} Demand Letter`,
-          clientName: variables.plaintiffName || 'Unknown',
-          status: 'in_review', // Move from draft to in_review
-        }),
+      const response = await apiClient.patch(`/api/projects/${projectId}`, {
+        templateId,
+        variables,
+        title: `${variables.plaintiffName || 'Untitled'} Demand Letter`,
+        clientName: variables.plaintiffName || 'Unknown',
+        status: 'in_review', // Move from draft to in_review
       });
 
-      if (!response.ok) {
-        // Parse error response
-        const errorData = await response.json();
+      const { project } = response.data;
+
+      // Navigate to streaming generation view
+      router.push(`/dashboard/projects/${project.id}/generate`);
+    } catch (err: any) {
+      console.error('Error updating project:', err);
+
+      // Handle API errors
+      if (err.response?.data?.error) {
+        const errorData = err.response.data;
 
         if (errorData.error?.code === 'VALIDATION_ERROR' && errorData.error?.details) {
           // Map validation errors to form fields
@@ -102,22 +95,11 @@ export default function VariablesPage() {
           setFieldErrors(mappedErrors);
           setSubmissionError(errorData.error.message || 'Validation failed. Please check the form fields.');
         } else {
-          // Generic error
-          setSubmissionError(
-            errorData.error?.message ||
-            'Failed to update project. Please try again.'
-          );
+          setSubmissionError(errorData.error?.message || 'Failed to update project. Please try again.');
         }
-        return;
+      } else {
+        setSubmissionError('An unexpected error occurred. Please try again.');
       }
-
-      const { project } = await response.json();
-
-      // Navigate to streaming generation view
-      router.push(`/dashboard/projects/${project.id}/generate`);
-    } catch (err) {
-      console.error('Error updating project:', err);
-      setSubmissionError('An unexpected error occurred. Please try again.');
     }
   };
 
