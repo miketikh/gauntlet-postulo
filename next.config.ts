@@ -39,22 +39,7 @@ const nextConfig: NextConfig = {
   },
 
   // Server-only packages that should not be bundled for client
-  serverExternalPackages: ['ws', 'lib0', 'y-protocols'],
-
-  // Webpack configuration
-  webpack: (config, { isServer }) => {
-    // Externalize server-only packages for client builds
-    if (!isServer) {
-      config.externals = config.externals || [];
-      config.externals.push({
-        'lib0/encoding': 'commonjs lib0/encoding',
-        'lib0/decoding': 'commonjs lib0/decoding',
-        'y-protocols/sync': 'commonjs y-protocols/sync',
-        'y-protocols/awareness': 'commonjs y-protocols/awareness',
-      });
-    }
-    return config;
-  },
+  serverExternalPackages: ['ws'],
 };
 
 export default withBundleAnalyzer(nextConfig);
